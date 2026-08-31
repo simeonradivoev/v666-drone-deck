@@ -48,7 +48,7 @@ function wifiUavJpeg(parts) {
   const payload = Buffer.concat(parts); const soi = payload.indexOf(Buffer.from([0xff, 0xd8]));
   if (soi >= 0) {
     const eoi = payload.indexOf(Buffer.from([0xff, 0xd9]), soi + 2);
-    return payload.subarray(soi, eoi >= 0 ? eoi + 2 : undefined);
+    return eoi >= 0 ? payload.subarray(soi, eoi + 2) : Buffer.concat([payload.subarray(soi), Buffer.from([0xff, 0xd9])]);
   }
   return Buffer.concat([wifiUavJpegHeader(), payload, Buffer.from([0xff, 0xd9])]);
 }
