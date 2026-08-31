@@ -98,17 +98,19 @@ function bindEvents() {
 }
 
 async function scanDroneWifi({ silent = false } = {}) {
+  const button = $('scanDroneWifi'); button.disabled = true;
   if (!silent) $('networkStatus').textContent = 'Scanning Wi-Fi…';
   try {
     const result = await api.scanWifi();
     if (!result.available) { if (!silent) $('networkStatus').textContent = result.message; return; }
     const networks = result.networks || [];
-    if (!networks.length) { if (!silent) $('networkStatus').textContent = 'No supported drone Wi-Fi found.'; return; }
+    if (!networks.length) { if (!silent) $('networkStatus').textContent = 'No supported drone Wi-Fi found; keeping the last detected network.'; return; }
     $('wifiNetworks').replaceChildren(...networks.map((network) => { const option = document.createElement('option'); option.value = network.ssid; option.textContent = `${network.ssid} — ${network.signal}%`; return option; }));
     $('wifiNetworks').hidden = false; $('joinDroneWifi').disabled = false;
     $('ssid').value = networks[0].ssid; $('profile').value = await api.suggestProfile(networks[0].ssid); applyProfileDefaults();
     $('networkStatus').textContent = `Drone Wi-Fi detected: ${networks[0].ssid}. Press Join selected to connect.`;
   } catch (error) { $('networkStatus').textContent = error.message; }
+  finally { button.disabled = false; }
 }
 async function joinDroneWifi() {
   const ssid = $('wifiNetworks').value;

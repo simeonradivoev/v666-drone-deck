@@ -9,6 +9,8 @@ const { PROFILES, buildPacket, suggestProfile } = require('./protocols');
 
 const execFileAsync = promisify(execFile);
 const COMMON_DRONE_IPS = ['192.168.4.153', '192.168.100.1', '192.168.169.1', '192.168.0.1', '172.16.10.1'];
+let wifiScanPromise = null;
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 const CAMERA_URLS = (host) => [
   `rtsp://${host}:7070/H264VideoSMS`,
   `rtsp://${host}:7070/webcam`,
@@ -58,12 +60,23 @@ function parseNmcliWifiList(stdout) {
 
 async function scanDroneWifi() {
   if (process.platform !== 'linux') return { available: false, networks: [], message: 'Automatic Wi-Fi switching is available on SteamOS/Desktop Linux.' };
-  try {
-    const { stdout } = await execFileAsync('nmcli', ['-t', '--escape', 'no', '-f', 'SSID,SIGNAL', 'device', 'wifi', 'list', '--rescan', 'yes'], { timeout: 15000 });
-    return { available: true, networks: parseNmcliWifiList(stdout) };
-  } catch (error) {
-    throw new Error(`Could not scan Wi-Fi: ${error.stderr?.trim() || error.message}`);
-  }
+  if (wifiScanPromise) return wifiScanPromise;
+  wifiScanPromise = (async () => {
+    // A forced scan fails while NetworkManager is already scanning. Ask once, then read its results.
+    try { await execFileAsync('nmcli', ['--wait', '8', 'device', 'wifi', 'rescan'], { timeout: 10000 }); } catch (_) {}
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const { stdout } = await execFileAsync('nmcli', ['-t', '--escape', 'no', '-f', 'SSID,SIGNAL', 'device', 'wifi', 'list', '--rescan', 'no'], { timeout: 10000 });
+        return { available: true, networks: parseNmcliWifiList(stdout) };
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) await wait(700);
+      }
+    }
+    throw new Error(`Could not scan Wi-Fi after retries: ${lastError?.stderr?.trim() || lastError?.message || 'NetworkManager did not return a result.'}`);
+  })().finally(() => { wifiScanPromise = null; });
+  return wifiScanPromise;
 }
 
 async function connectDroneWifi(ssid) {
