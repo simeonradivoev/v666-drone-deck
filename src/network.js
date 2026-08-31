@@ -5,7 +5,7 @@ const net = require('node:net');
 const os = require('node:os');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
-const { PROFILES, buildPacket } = require('./protocols');
+const { PROFILES, buildPacket, suggestProfile } = require('./protocols');
 
 const execFileAsync = promisify(execFile);
 const COMMON_DRONE_IPS = ['192.168.4.153', '192.168.100.1', '192.168.169.1', '192.168.0.1', '172.16.10.1'];
@@ -43,6 +43,38 @@ function probeTcp(host, port, timeout = 220) {
     socket.once('connect', () => finish(true));
     socket.once('error', () => finish(false));
   });
+}
+
+function parseNmcliWifiList(stdout) {
+  const networks = new Map();
+  for (const line of stdout.split(/\r?\n/)) {
+    const [rawSsid, signal = '0'] = line.split(':'); const ssid = rawSsid.trim();
+    if (!ssid || suggestProfile(ssid) === 'diagnostic') continue;
+    const candidate = { ssid, signal: Number(signal) || 0 };
+    if (!networks.has(ssid) || candidate.signal > networks.get(ssid).signal) networks.set(ssid, candidate);
+  }
+  return [...networks.values()].sort((a, b) => b.signal - a.signal);
+}
+
+async function scanDroneWifi() {
+  if (process.platform !== 'linux') return { available: false, networks: [], message: 'Automatic Wi-Fi switching is available on SteamOS/Desktop Linux.' };
+  try {
+    const { stdout } = await execFileAsync('nmcli', ['-t', '--escape', 'no', '-f', 'SSID,SIGNAL', 'device', 'wifi', 'list', '--rescan', 'yes'], { timeout: 15000 });
+    return { available: true, networks: parseNmcliWifiList(stdout) };
+  } catch (error) {
+    throw new Error(`Could not scan Wi-Fi: ${error.stderr?.trim() || error.message}`);
+  }
+}
+
+async function connectDroneWifi(ssid) {
+  if (process.platform !== 'linux') throw new Error('Automatic Wi-Fi switching is available on SteamOS/Desktop Linux.');
+  if (suggestProfile(ssid) === 'diagnostic') throw new Error('That SSID is not a supported drone profile.');
+  try {
+    await execFileAsync('nmcli', ['--wait', '15', 'device', 'wifi', 'connect', ssid], { timeout: 20000 });
+    return { ssid, connected: true };
+  } catch (error) {
+    throw new Error(`Could not join ${ssid}: ${error.stderr?.trim() || error.message}`);
+  }
 }
 
 async function discover() {
@@ -122,4 +154,4 @@ class FlightLink {
   }
 }
 
-module.exports = { COMMON_DRONE_IPS, CAMERA_URLS, defaultGateway, discover, FlightLink };
+module.exports = { COMMON_DRONE_IPS, CAMERA_URLS, defaultGateway, discover, scanDroneWifi, connectDroneWifi, parseNmcliWifiList, FlightLink };

@@ -32,6 +32,7 @@
         <section class="card panel">
           <div class="panel-title"><span>01</span><h2>LINK</h2></div>
           <label>Drone network name (SSID)<input id="ssid" placeholder="e.g. WIFI_8K_123456"></label>
+          <div class="wifi-switch"><button id="scanDroneWifi">Find drone Wi-Fi</button><select id="wifiNetworks" hidden aria-label="Detected drone Wi-Fi networks"></select><button id="joinDroneWifi" class="primary" disabled>Join selected</button></div>
           <div class="row"><button id="discover" class="primary">Discover drone</button><span id="networkStatus" class="muted">Not scanned</span></div>
           <label>Drone address<input id="host" value="192.168.4.153" inputmode="decimal"></label>
           <label>Camera stream<select id="cameraUrl"><option value="">Run discovery first</option></select></label>

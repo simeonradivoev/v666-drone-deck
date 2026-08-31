@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { mapSticks, wifi8kPacket, flowUfoPacket, wifiUavFldPacket, buildPacket, suggestProfile } = require('../src/protocols');
 const { wifiUavRequest, wifiUavJpegHeader, wifiUavPorts, parseWifiUavFragment, wifiUavAckSlots } = require('../src/video');
+const { parseNmcliWifiList } = require('../src/network');
 
 test('Mode 2 maps throttle/yaw left and pitch/roll right', () => {
   assert.deepEqual(mapSticks(2, { leftX: .5, leftY: -.5, rightX: -.25, rightY: .25 }, 0), {
@@ -72,4 +73,10 @@ test('WiFi-UAV camera requests match the native UDP envelope', () => {
   assert.deepEqual(parseWifiUavFragment(legacy), { frameId: '5', fragmentId: 2, total: 3, payload: Buffer.from([0]) });
   const slots = wifiUavAckSlots(new Map([['4', { total: 3, fragments: new Map([[0, Buffer.from([0])], [2, Buffer.from([0])]]) }]]), 4);
   assert.equal(slots.length, 1); assert.equal(slots[0].readUInt32LE(8), 0); assert.equal(slots[0].readUInt32LE(12), 20); assert.equal(slots[0].readUInt32LE(16), 5);
+});
+
+test('Wi-Fi scan only offers supported drone SSIDs', () => {
+  assert.deepEqual(parseNmcliWifiList('home:91\nFLOW_09B183:72\nFLOW_09B183:65\nWIFI_8K_TEST:48\nunknown:99'), [
+    { ssid: 'FLOW_09B183', signal: 72 }, { ssid: 'WIFI_8K_TEST', signal: 48 }
+  ]);
 });

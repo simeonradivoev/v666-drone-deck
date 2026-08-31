@@ -6,7 +6,7 @@ const fs = require('node:fs/promises');
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { PROFILES, MODE_MAPS, suggestProfile } = require('./protocols');
-const { discover, FlightLink } = require('./network');
+const { discover, scanDroneWifi, connectDroneWifi, FlightLink } = require('./network');
 const { MjpegBridge } = require('./video');
 
 let window;
@@ -68,6 +68,8 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 
 ipcMain.handle('app:info', () => ({ version: app.getVersion(), packaged: app.isPackaged, profiles: PROFILES, modes: MODE_MAPS }));
 ipcMain.handle('network:discover', () => discover());
+ipcMain.handle('network:scan-wifi', () => scanDroneWifi());
+ipcMain.handle('network:connect-wifi', (_, ssid) => connectDroneWifi(ssid));
 ipcMain.handle('profile:suggest', (_, ssid) => suggestProfile(ssid));
 ipcMain.handle('flight:connect', (_, options) => flight.connect(options.profileId, options.host));
 ipcMain.handle('flight:update', (_, state) => flight.update(state));

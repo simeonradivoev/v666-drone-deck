@@ -10,7 +10,7 @@ const listen = (channel) => (callback) => {
 };
 
 contextBridge.exposeInMainWorld('deckDrone', {
-  info: invoke('app:info'), discover: invoke('network:discover'), suggestProfile: invoke('profile:suggest'),
+  info: invoke('app:info'), discover: invoke('network:discover'), scanWifi: invoke('network:scan-wifi'), connectWifi: invoke('network:connect-wifi'), suggestProfile: invoke('profile:suggest'),
   connect: invoke('flight:connect'), updateFlight: invoke('flight:update'), command: invoke('flight:command'), disconnect: invoke('flight:disconnect'),
   startVideo: invoke('video:start'), stopVideo: invoke('video:stop'),
   checkUpdate: invoke('update:check'), installUpdate: invoke('update:install'), importUpdate: invoke('update:import'),

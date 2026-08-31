@@ -43,6 +43,8 @@ function bindEvents() {
   $('ssid').addEventListener('change', async () => { $('profile').value=await api.suggestProfile($('ssid').value); applyProfileDefaults(); });
   $('response').addEventListener('input', () => $('responseValue').textContent=`${$('response').value}%`);
   $('discover').addEventListener('click', discover);
+  $('scanDroneWifi').addEventListener('click', scanDroneWifi);
+  $('joinDroneWifi').addEventListener('click', joinDroneWifi);
   $('startCamera').addEventListener('click', startCamera);
   $('camera').addEventListener('error', () => {
     if (!state.videoFrame) $('networkStatus').textContent='Waiting for the camera bridge to produce its first frame…';
@@ -64,6 +66,30 @@ function bindEvents() {
   });
   api.onVideoLog((message) => { if(message) $('networkStatus').textContent=message.slice(-90); });
   api.onUpdateStatus(updateStatus);
+}
+
+async function scanDroneWifi() {
+  $('networkStatus').textContent = 'Scanning Wi-Fi…';
+  try {
+    const result = await api.scanWifi();
+    if (!result.available) { $('networkStatus').textContent = result.message; return; }
+    const networks = result.networks || [];
+    if (!networks.length) { $('networkStatus').textContent = 'No supported drone Wi-Fi found.'; return; }
+    $('wifiNetworks').replaceChildren(...networks.map((network) => { const option = document.createElement('option'); option.value = network.ssid; option.textContent = `${network.ssid} — ${network.signal}%`; return option; }));
+    $('wifiNetworks').hidden = false; $('joinDroneWifi').disabled = false;
+    $('ssid').value = networks[0].ssid; $('profile').value = await api.suggestProfile(networks[0].ssid); applyProfileDefaults();
+    $('networkStatus').textContent = `${networks.length} supported drone network${networks.length === 1 ? '' : 's'} found.`;
+  } catch (error) { $('networkStatus').textContent = error.message; }
+}
+async function joinDroneWifi() {
+  const ssid = $('wifiNetworks').value;
+  if (!ssid) return;
+  $('joinDroneWifi').disabled = true; $('networkStatus').textContent = `Joining ${ssid}…`;
+  try {
+    await api.connectWifi(ssid); $('ssid').value = ssid; $('profile').value = await api.suggestProfile(ssid); applyProfileDefaults();
+    $('networkStatus').textContent = `Joined ${ssid}. Discovering drone…`; await discover();
+  } catch (error) { $('networkStatus').textContent = error.message; }
+  finally { $('joinDroneWifi').disabled = false; }
 }
 
 async function discover() {
