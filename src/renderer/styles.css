@@ -20,6 +20,7 @@ h1 { margin:0; font:700 30px/1 ui-monospace,monospace; letter-spacing:.15em; } h
 .card { border:1px solid var(--line); border-radius:10px; background:linear-gradient(145deg,#102229dd,#09151add); box-shadow:0 15px 35px #0005; }
 .viewport { position:relative; overflow:hidden; background:#020708; }
 #camera { width:100%; height:100%; object-fit:contain; display:none; }
++#camera.vertical-flip { transform:scaleY(-1); }
 .camera-placeholder { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; color:var(--muted); background:linear-gradient(#071015aa,#071015aa),repeating-linear-gradient(0deg,transparent 0 39px,#1c353d55 40px),repeating-linear-gradient(90deg,transparent 0 39px,#1c353d55 40px); }
 .camera-placeholder strong { color:#d9eeeb; letter-spacing:.18em; }
 .reticle { width:92px; height:92px; border:1px solid var(--cyan); border-radius:50%; position:relative; opacity:.65; }

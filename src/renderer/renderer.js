@@ -135,6 +135,7 @@ async function startCamera() {
   if(!url) return;
   try {
     state.videoFrame = false;
+    $('camera').classList.toggle('vertical-flip', url.startsWith('wifi-uav://'));
     const result=await api.startVideo(url);
     // Frames are delivered directly over Electron IPC, avoiding browser multipart-stream decoding.
     $('camera').removeAttribute('src');
