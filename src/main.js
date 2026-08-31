@@ -19,7 +19,7 @@ function send(channel, payload) {
 }
 
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
-const settingsKeys = new Set(['ssid', 'host', 'cameraUrl', 'profile', 'mode', 'response', 'protocolConfirmed']);
+const settingsKeys = new Set(['ssid', 'host', 'cameraUrl', 'cameraOrientation', 'profile', 'mode', 'response', 'protocolConfirmed']);
 async function loadSettings() {
   try { return JSON.parse(await fs.readFile(settingsPath(), 'utf8')); } catch (_) { return {}; }
 }

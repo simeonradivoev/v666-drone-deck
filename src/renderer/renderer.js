@@ -27,13 +27,14 @@ function applyProfileDefaults() {
 }
 
 function currentSettings() {
-  return { ssid: $('ssid').value, host: $('host').value, cameraUrl: $('cameraUrl').value, profile: $('profile').value, mode: $('mode').value, response: $('response').value, protocolConfirmed: $('protocolConfirmed').checked };
+  return { ssid: $('ssid').value, host: $('host').value, cameraUrl: $('cameraUrl').value, cameraOrientation: $('cameraOrientation').value, profile: $('profile').value, mode: $('mode').value, response: $('response').value, protocolConfirmed: $('protocolConfirmed').checked };
 }
 function applySettings(settings) {
-  for (const key of ['ssid', 'host', 'mode', 'response']) if (typeof settings[key] === 'string' && $(key)) $(key).value = settings[key];
+  for (const key of ['ssid', 'host', 'cameraOrientation', 'mode', 'response']) if (typeof settings[key] === 'string' && $(key)) $(key).value = settings[key];
   if (settings.profile && state.info.profiles[settings.profile]) $('profile').value = settings.profile;
   if (typeof settings.protocolConfirmed === 'boolean') $('protocolConfirmed').checked = settings.protocolConfirmed;
   if (settings.cameraUrl) addCameraOptions([settings.cameraUrl]);
+  if (typeof settings.cameraOrientation === 'string') $('cameraOrientation').dataset.userSelected = 'true';
   $('responseValue').textContent = `${$('response').value}%`; updateProfileUI();
 }
 function scheduleSettingsSave() {
@@ -60,7 +61,8 @@ function bindEvents() {
   $('host').addEventListener('input', updateProfileUI);
   $('ssid').addEventListener('change', async () => { $('profile').value=await api.suggestProfile($('ssid').value); applyProfileDefaults(); });
   $('response').addEventListener('input', () => $('responseValue').textContent=`${$('response').value}%`);
-  for (const id of ['ssid', 'host', 'cameraUrl', 'profile', 'mode', 'response', 'protocolConfirmed']) $(id).addEventListener(id === 'response' || id === 'host' ? 'input' : 'change', scheduleSettingsSave);
+  for (const id of ['ssid', 'host', 'cameraUrl', 'cameraOrientation', 'profile', 'mode', 'response', 'protocolConfirmed']) $(id).addEventListener(id === 'response' || id === 'host' ? 'input' : 'change', scheduleSettingsSave);
+  $('cameraOrientation').addEventListener('change', () => { $('cameraOrientation').dataset.userSelected = 'true'; applyCameraOrientation(); });
   $('discover').addEventListener('click', discover);
   $('scanDroneWifi').addEventListener('click', scanDroneWifi);
   $('joinDroneWifi').addEventListener('click', joinDroneWifi);
@@ -131,12 +133,17 @@ async function discover() {
   } catch(error) { $('networkStatus').textContent=error.message; }
 }
 
+function applyCameraOrientation() {
+  $('camera').dataset.orientation = $('cameraOrientation').value;
+}
+
 async function startCamera() {
   const url=$('cameraUrl').value;
   if(!url) return;
   try {
     state.videoFrame = false;
-    $('camera').classList.toggle('vertical-flip', url.startsWith('wifi-uav://'));
+    if (!$('cameraOrientation').dataset.userSelected) $('cameraOrientation').value = url.startsWith('wifi-uav://') ? 'mirror-horizontal' : 'normal';
+    applyCameraOrientation();
     const result=await api.startVideo(url);
     // Frames are delivered directly over Electron IPC, avoiding browser multipart-stream decoding.
     $('camera').removeAttribute('src');
@@ -149,7 +156,7 @@ async function startCamera() {
 async function stopCamera() {
   try { await api.stopVideo(); }
   finally {
-    state.videoFrame = false; $('camera').removeAttribute('src'); $('camera').classList.remove('vertical-flip');
+    state.videoFrame = false; $('camera').removeAttribute('src'); delete $('camera').dataset.orientation;
     $('camera').style.display='none'; $('cameraPlaceholder').style.display='flex'; $('stopCamera').hidden = true;
     $('networkStatus').textContent='Camera stopped.';
   }
