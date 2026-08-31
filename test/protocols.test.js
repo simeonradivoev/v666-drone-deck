@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { mapSticks, wifi8kPacket, flowUfoPacket, buildPacket, suggestProfile } = require('../src/protocols');
+const { mapSticks, wifi8kPacket, flowUfoPacket, wifiUavFldPacket, buildPacket, suggestProfile } = require('../src/protocols');
 
 test('Mode 2 maps throttle/yaw left and pitch/roll right', () => {
   assert.deepEqual(mapSticks(2, { leftX: .5, leftY: -.5, rightX: -.25, rightY: .25 }, 0), {
@@ -35,8 +35,22 @@ test('FLOW-UFO packet is 21 bytes and semantic commands are translated', () => {
   assert.equal(flowUfoPacket({ roll:0, pitch:0, throttle:0, yaw:0 }).length, 21);
 });
 
+test('FLOW_09B183 WiFi-UAV/FLD packet matches the extended UDP layout', () => {
+  const packet = wifiUavFldPacket({ roll: 0, pitch: 0, throttle: 0, yaw: 0 }, 0, { first: 0, second: 1, third: 2 });
+  assert.equal(packet.length, 124);
+  assert.deepEqual([...packet.subarray(0, 12)], [0xef, 0x02, 0x7c, 0x00, 0x02, 0x02, 0x00, 0x01, 0x02, 0x00, 0x00, 0x00]);
+  assert.deepEqual([...packet.subarray(18, 26)], [0x66, 0x14, 0x80, 0x80, 0x80, 0x80, 0x00, 0x02]);
+  assert.equal(packet[36], 0x02);
+  assert.equal(packet[37], 0x99);
+  assert.equal(packet.readUInt16LE(88), 1);
+  assert.equal(packet.readUInt16LE(108), 2);
+  const takeoff = buildPacket('wifiUavFld', { roll: 0, pitch: 0, throttle: 0, yaw: 0 }, 0x01, { first: 3, second: 4, third: 5 });
+  assert.deepEqual([...takeoff.subarray(18, 26)], [0x66, 0x14, 0x80, 0x80, 0x80, 0x80, 0x01, 0x02]);
+});
+
 test('profile suggestion is conservative', () => {
   assert.equal(suggestProfile('WIFI_8K_ABC'), 'wifi8k');
   assert.equal(suggestProfile('FLOW-UFO-1234'), 'flowUfo');
+  assert.equal(suggestProfile('FLOW_09B183'), 'wifiUavFld');
   assert.equal(suggestProfile('mystery-camera'), 'diagnostic');
 });

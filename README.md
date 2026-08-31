@@ -11,6 +11,7 @@ A Steam Deck-first ground station for the inexpensive V666 family of Wi-Fi camer
 - Hold-L1 deadman control and neutral-on-release: implemented
 - `WIFI_8K-*` / E88-E99 UDP control profile: implemented, requires hardware verification
 - `FLOW-UFO-*` / KY UFO UDP control profile: implemented, requires hardware verification
+- `FLOW_09B183` / WiFi UAV (FLD) UDP control profile: implemented from the matching `com.lcfld.fldpublic` app and independent packet traces; requires propellers-off verification
 - RTSP camera probing and in-app MJPEG bridge: implemented (requires `ffmpeg` on `PATH`)
 - Conservative camera-only mode: implemented and selected by default
 - GitHub release/AppImage self-updates: implemented
@@ -22,7 +23,7 @@ The last line matters. The app is ready for a props-off hardware identification 
 
 1. Remove every propeller. Leave the bundled transmitter off.
 2. Power the drone and connect the Steam Deck to its Wi-Fi in Desktop Mode.
-3. Record the exact Wi-Fi name. Common matches are `WIFI_8K_*`, `FLOW-UFO-*`, or something entirely different.
+3. Record the exact Wi-Fi name. Common matches are `WIFI_8K_*`, `FLOW-UFO-*`, the exact `FLOW_09B183`, or something entirely different.
 4. Launch China Drone Deck and enter that name in **Drone network name**.
 5. Select **Discover drone**. Start with **Camera only / diagnostic** and try the proposed camera URLs.
 6. If the SSID matches a supported profile, select it and check the explicit verification box.
@@ -107,6 +108,7 @@ Wi-Fi FPV on this class of drone often has hundreds of milliseconds of latency. 
 - The `WIFI_8K` packet and mode-switch behavior were independently documented for the E88/E99 family: [maritaca-e88-controller](https://github.com/popolony2k/maritaca-e88-controller).
 - The `FLOW-UFO` packet, port, command values, and RTSP endpoint were captured from the KY UFO app: [pyDroneWire](https://github.com/hakimjanov/pyDroneWire).
 - HFun-family cameras have been observed at `rtsp://192.168.100.1:7070/H264VideoSMS`: [HFun camera reverse engineering notes](https://www.reddit.com/r/drones/comments/13e5c1s/hacking_a_dronex_pro_air_camera/).
+- The `FLOW_09B183` profile uses the WiFi UAV FLD-compatible extended packet: `192.168.169.1:8800`, 124-byte UDP envelope, and inner `66 14` control payload. Its matching Android package is `com.lcfld.fldpublic`; the packet envelope is independently documented in [TurboDrone's WiFi UAV adapter](https://github.com/marshallrichards/turbodrone/blob/master/backend/protocols/wifi_uav_rc_protocol_adapter.py).
 
 ## Safety and scope
 

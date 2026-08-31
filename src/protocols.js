@@ -21,6 +21,11 @@ const PROFILES = Object.freeze({
     id: 'flowUfo', label: 'FLOW-UFO / KY family', controlPort: 7099,
     ssid: [/^FLOW[-_]?UFO/i, /^FLOW-/i, /^KY-/i],
     description: '21-byte KY UFO protocol. Select only when the SSID matches.'
+  },
+  wifiUavFld: {
+    id: 'wifiUavFld', label: 'FLOW_09B183 / WiFi UAV (FLD)', controlPort: 8800,
+    ssid: [/^FLOW_09B183$/i],
+    description: '124-byte WiFi UAV/FLD UDP protocol for the exact FLOW_09B183 SSID. Test with propellers removed first.'
   }
 });
 
@@ -72,6 +77,30 @@ function flowUfoPacket(channels, flags = 0, speed = 0x20) {
   return Buffer.from([0x03, 0x66, 0x14, ...core, xor(core), 0x99]);
 }
 
+function wifiUavFldPacket(channels, flags = 0, counters = { first: 0, second: 1, third: 2 }) {
+  const first = Number(counters.first ?? 0) & 0xffff;
+  const second = Number(counters.second ?? 1) & 0xffff;
+  const third = Number(counters.third ?? 2) & 0xffff;
+  const command = ((flags & 0x03) ? 0x01 : 0) | ((flags & 0x04) ? 0x02 : 0) | ((flags & 0x80) ? 0x04 : 0) | ((flags & 0x08) ? 0x08 : 0);
+  const control = [axisByte(channels.roll), axisByte(channels.pitch), axisByte(channels.throttle), axisByte(channels.yaw), command, (flags & 0x10) ? 0x03 : 0x02];
+  const packet = Buffer.alloc(124);
+  let offset = 0;
+  Buffer.from([0xef, 0x02, 0x7c, 0x00, 0x02, 0x02, 0x00, 0x01, 0x02, 0x00, 0x00, 0x00]).copy(packet, offset); offset += 12;
+  packet.writeUInt16LE(first, offset); offset += 2;
+  Buffer.from([0x00, 0x00, 0x14, 0x00, 0x66, 0x14]).copy(packet, offset); offset += 6;
+  Buffer.from(control).copy(packet, offset); offset += 6;
+  offset += 10;
+  packet[offset++] = xor(control);
+  packet[offset++] = 0x99;
+  offset += 44;
+  Buffer.from([0x32, 0x4b, 0x14, 0x2d, 0x00, 0x00]).copy(packet, offset); offset += 6;
+  packet.writeUInt16LE(second, offset); offset += 2;
+  Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff]).copy(packet, offset); offset += 18;
+  packet.writeUInt16LE(third, offset); offset += 2;
+  Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00]).copy(packet, offset);
+  return packet;
+}
+
 function buildPacket(profileId, channels, flags = 0, speed = 0x20) {
   if (profileId === 'wifi8k') return wifi8kPacket(channels, flags);
   if (profileId === 'flowUfo') {
@@ -85,6 +114,7 @@ function buildPacket(profileId, channels, flags = 0, speed = 0x20) {
     else if (flags & 0x08) command = 0x05;
     return flowUfoPacket(channels, command, speed);
   }
+  if (profileId === 'wifiUavFld') return wifiUavFldPacket(channels, flags, speed);
   throw new Error('Camera-only mode cannot produce control packets.');
 }
 
@@ -92,4 +122,4 @@ function suggestProfile(ssid = '') {
   return Object.values(PROFILES).find((profile) => profile.ssid.some((pattern) => pattern.test(ssid)))?.id || 'diagnostic';
 }
 
-module.exports = { MODE_MAPS, PROFILES, applyDeadzone, mapSticks, buildPacket, suggestProfile, wifi8kPacket, flowUfoPacket };
+module.exports = { MODE_MAPS, PROFILES, applyDeadzone, mapSticks, buildPacket, suggestProfile, wifi8kPacket, flowUfoPacket, wifiUavFldPacket };

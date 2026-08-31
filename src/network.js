@@ -8,7 +8,7 @@ const { promisify } = require('node:util');
 const { PROFILES, buildPacket } = require('./protocols');
 
 const execFileAsync = promisify(execFile);
-const COMMON_DRONE_IPS = ['192.168.4.153', '192.168.100.1', '192.168.0.1', '172.16.10.1'];
+const COMMON_DRONE_IPS = ['192.168.4.153', '192.168.100.1', '192.168.169.1', '192.168.0.1', '172.16.10.1'];
 const CAMERA_URLS = (host) => [
   `rtsp://${host}:7070/H264VideoSMS`,
   `rtsp://${host}:7070/webcam`,
@@ -63,6 +63,7 @@ class FlightLink {
     this.socket = null;
     this.timer = null;
     this.target = null;
+    this.packetCounters = null;
     this.state = { roll: 0, pitch: 0, throttle: 0, yaw: 0, flags: 0, speed: 0x20 };
     this.onStatus = onStatus;
   }
@@ -73,6 +74,7 @@ class FlightLink {
     if (!profile?.controlPort) throw new Error('Select a verified control profile first.');
     this.target = { profileId, host, port: profile.controlPort };
     this.socket = dgram.createSocket('udp4');
+    this.packetCounters = { first: 0, second: 1, third: 2 };
     this.socket.on('error', (error) => this.onStatus({ connected: false, error: error.message }));
     await new Promise((resolve) => this.socket.bind(0, resolve));
     if (profile.activationPort) this.socket.send(Buffer.from([0x42, 0x76]), profile.activationPort, host);
@@ -95,7 +97,12 @@ class FlightLink {
 
   send() {
     if (!this.socket || !this.target) return;
-    const packet = buildPacket(this.target.profileId, this.state, this.state.flags, this.state.speed);
+    const packet = buildPacket(this.target.profileId, this.state, this.state.flags, this.target.profileId === 'wifiUavFld' ? this.packetCounters : this.state.speed);
+    if (this.target.profileId === 'wifiUavFld') {
+      this.packetCounters.first = (this.packetCounters.first + 1) & 0xffff;
+      this.packetCounters.second = (this.packetCounters.second + 1) & 0xffff;
+      this.packetCounters.third = (this.packetCounters.third + 1) & 0xffff;
+    }
     this.socket.send(packet, this.target.port, this.target.host);
   }
 
@@ -105,6 +112,7 @@ class FlightLink {
     if (this.socket) this.socket.close();
     this.socket = null;
     this.target = null;
+    this.packetCounters = null;
     this.onStatus({ connected: false });
   }
 }
