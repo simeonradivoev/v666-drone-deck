@@ -1,0 +1,42 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { mapSticks, wifi8kPacket, flowUfoPacket, buildPacket, suggestProfile } = require('../src/protocols');
+
+test('Mode 2 maps throttle/yaw left and pitch/roll right', () => {
+  assert.deepEqual(mapSticks(2, { leftX: .5, leftY: -.5, rightX: -.25, rightY: .25 }, 0), {
+    roll: -.25, pitch: -.25, throttle: .5, yaw: .5
+  });
+});
+
+test('all four modes assign every channel once', () => {
+  for (const mode of [1, 2, 3, 4]) {
+    const mapped = mapSticks(mode, { leftX: .1, leftY: .2, rightX: .3, rightY: .4 }, 0);
+    assert.deepEqual(Object.keys(mapped).sort(), ['pitch', 'roll', 'throttle', 'yaw']);
+    assert.equal(new Set(Object.values(mapped)).size, 4);
+  }
+});
+
+test('WIFI_8K packet has framing and XOR checksum', () => {
+  const packet = wifi8kPacket({ roll:0, pitch:0, throttle:0, yaw:0 }, 0x40);
+  assert.equal(packet.length, 9);
+  assert.deepEqual([...packet.subarray(0, 2)], [0x03, 0x66]);
+  assert.equal(packet[8], 0x99);
+  assert.equal(packet[7], packet.subarray(2, 7).reduce((a, b) => a ^ b, 0));
+});
+
+test('FLOW-UFO packet is 21 bytes and semantic commands are translated', () => {
+  const packet = buildPacket('flowUfo', { roll:0, pitch:0, throttle:0, yaw:0 }, 0x80);
+  assert.equal(packet.length, 21);
+  assert.deepEqual([...packet.subarray(0, 3)], [0x03, 0x66, 0x14]);
+  assert.equal(packet[7], 0x03);
+  assert.equal(packet[20], 0x99);
+  assert.equal(flowUfoPacket({ roll:0, pitch:0, throttle:0, yaw:0 }).length, 21);
+});
+
+test('profile suggestion is conservative', () => {
+  assert.equal(suggestProfile('WIFI_8K_ABC'), 'wifi8k');
+  assert.equal(suggestProfile('FLOW-UFO-1234'), 'flowUfo');
+  assert.equal(suggestProfile('mystery-camera'), 'diagnostic');
+});

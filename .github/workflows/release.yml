@@ -1,0 +1,25 @@
+name: Build Steam Deck AppImage
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run dist:linux
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*.AppImage
+            dist/latest-linux.yml

@@ -1,0 +1,40 @@
+{
+  "name": "china-drone-deck",
+  "version": "0.1.0",
+  "description": "Steam Deck ground station for V666-family Wi-Fi drones",
+  "main": "src/main.js",
+  "author": "China Drone Deck contributors",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "pack": "electron-builder --dir",
+    "dist:linux": "electron-builder --linux AppImage"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "electron": "^37.2.6",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "io.github.chinadrone.deck",
+    "productName": "China Drone Deck",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Game",
+      "artifactName": "China-Drone-Deck-${version}-${arch}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "CHANGE_ME",
+      "repo": "china-drone-deck"
+    }
+  }
+}
