@@ -24,7 +24,7 @@ The last line matters. The app is ready for a props-off hardware identification 
 1. Remove every propeller. Leave the bundled transmitter off.
 2. Power the drone and connect the Steam Deck to its Wi-Fi in Desktop Mode.
 3. Record the exact Wi-Fi name. Common matches are `WIFI_8K_*`, `FLOW-UFO-*`, the exact `FLOW_09B183`, or something entirely different.
-4. Launch China Drone Deck and use **Find drone Wi-Fi** to scan and join a supported SSID directly on SteamOS. You can also enter the name manually. For the exact `FLOW_09B183`, the app selects its native camera option and `192.168.169.1` automatically.
+4. On SteamOS, China Drone Deck scans for supported drone Wi-Fi automatically on launch. Press **Join selected** to switch to the detected network; **Rescan Wi-Fi** is available if the drone was powered on later. You can also enter the name manually. For the exact `FLOW_09B183`, the app selects its native camera option and `192.168.169.1` automatically.
 5. Select **Discover drone**. Start with **Camera only / diagnostic** and try the proposed camera URLs; for `FLOW_09B183`, choose **WiFi UAV native UDP** instead of an RTSP URL.
 6. If the SSID matches a supported profile, select it and check the explicit verification box.
 7. Enable the flight link with the props still removed. Hold L1 and move each stick slightly, one axis at a time. Confirm the expected motor response and neutral-on-release.
