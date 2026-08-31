@@ -103,7 +103,7 @@ Mode layouts follow conventional RC definitions:
 
 The bridge tries common toy-drone RTSP endpoints, including `:7070/H264VideoSMS` and `:7070/webcam`, then uses `ffmpeg` to produce an in-app MJPEG feed. This is deliberately separate from flight control: camera viewing can work even when the aircraft protocol is still unknown.
 
-For the exact `FLOW_09B183` WiFi-UAV/FLD profile, choose **WiFi UAV native UDP**. The app sends the native stream request to `192.168.169.1` on UDP ports `8800` and `8801`, reconstructs its JPEG fragments, and corrects this camera's vertical orientation in the display; it does not use RTSP or `ffmpeg`.
+For the exact `FLOW_09B183` WiFi-UAV/FLD profile, choose **WiFi UAV native UDP**. The app sends the native stream request to `192.168.169.1` on UDP ports `8800` and `8801`, reconstructs its JPEG fragments, and corrects this camera's vertical orientation in the display; it does not use RTSP or `ffmpeg`. Use **Stop camera** to stop its stream requests and clear the display.
 
 Wi-Fi FPV on this class of drone often has hundreds of milliseconds of latency. Keep the aircraft within visual line of sight and do not use the camera as the sole reference for close-proximity flying.
 

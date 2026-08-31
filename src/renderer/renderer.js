@@ -65,6 +65,7 @@ function bindEvents() {
   $('scanDroneWifi').addEventListener('click', scanDroneWifi);
   $('joinDroneWifi').addEventListener('click', joinDroneWifi);
   $('startCamera').addEventListener('click', startCamera);
+  $('stopCamera').addEventListener('click', stopCamera);
   $('camera').addEventListener('error', () => {
     if (!state.videoFrame) $('networkStatus').textContent='Waiting for the camera bridge to produce its first frame…';
   });
@@ -140,8 +141,18 @@ async function startCamera() {
     // Frames are delivered directly over Electron IPC, avoiding browser multipart-stream decoding.
     $('camera').removeAttribute('src');
     $('camera').style.display='none'; $('cameraPlaceholder').style.display='flex';
+    $('stopCamera').hidden = false;
     $('networkStatus').textContent='Camera starting…';
   } catch(error) { $('networkStatus').textContent=error.message; }
+}
+
+async function stopCamera() {
+  try { await api.stopVideo(); }
+  finally {
+    state.videoFrame = false; $('camera').removeAttribute('src'); $('camera').classList.remove('vertical-flip');
+    $('camera').style.display='none'; $('cameraPlaceholder').style.display='flex'; $('stopCamera').hidden = true;
+    $('networkStatus').textContent='Camera stopped.';
+  }
 }
 
 async function connectControl() {
