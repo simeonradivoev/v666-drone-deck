@@ -57,11 +57,11 @@ function parseWifiUavFragment(packet) {
   if (packet.readUInt16LE(2) === packet.length) {
     const total = packet.readUInt32LE(36);
     const fragmentId = packet.readUInt32LE(32);
-    if (total > 0 && fragmentId < total) return { frameId: packet.readBigUInt64LE(8).toString(), fragmentId, total, mainCameraReady: packet[52] === 1, flowCameraReady: packet[53] === 1, payload: packet.subarray(56) };
+    if (total > 0 && fragmentId < total) return { frameId: packet.readBigUInt64LE(8).toString(), fragmentId, total, mainCameraReady: packet[52] !== 0, flowCameraReady: packet[53] !== 0, payload: packet.subarray(56) };
   }
   // Older FLD firmware reports 16-bit counters and only reveals the total on the tail packet.
   const fragmentId = packet.readUInt16LE(32);
-  return { frameId: String(packet.readUInt16LE(16)), fragmentId, total: packet[2] === 0x38 ? 0 : fragmentId + 1, mainCameraReady: packet[52] === 1, flowCameraReady: packet[53] === 1, payload: packet.subarray(56) };
+  return { frameId: String(packet.readUInt16LE(16)), fragmentId, total: packet[2] === 0x38 ? 0 : fragmentId + 1, mainCameraReady: packet[52] !== 0, flowCameraReady: packet[53] !== 0, payload: packet.subarray(56) };
 }
 
 class MjpegBridge extends EventEmitter {
@@ -105,7 +105,7 @@ class MjpegBridge extends EventEmitter {
       for (const port of wifiUavPorts(host)) {
         if (includeStart) udp.send(WIFI_UAV_START, port, host);
         udp.send(wifiUavRequest(frameId, false), port, host);
-        const cameraReady = camera === 'flow' ? state.flowCameraReady : state.mainCameraReady;
+        const cameraReady = camera === 'flow' ? state.flowCameraReady : 0;
         udp.send(wifiUavRequest(frameId, true, wifiUavAckSlots(state.frames, frameId, cameraReady), cameraReady), port, host);
       }
     };

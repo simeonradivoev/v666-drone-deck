@@ -68,14 +68,14 @@ test('WiFi-UAV camera requests match the native UDP envelope', () => {
   assert.deepEqual(wifiUavPorts('192.168.169.1'), [8800, 8801]);
   assert.deepEqual(wifiUavPorts('192.168.4.153'), [8800]);
   const native = Buffer.alloc(57); native.set([0x93, 0x01]); native.writeUInt16LE(57, 2); native.writeBigUInt64LE(4n, 8); native.writeUInt32LE(0, 32); native.writeUInt32LE(1, 36);
-  native[52] = 1; native[53] = 0;
+  native[52] = 2; native[53] = 0;
   assert.deepEqual(parseWifiUavFragment(native), { frameId: '4', fragmentId: 0, total: 1, mainCameraReady: true, flowCameraReady: false, payload: Buffer.from([0]) });
   const legacy = Buffer.alloc(57); legacy.set([0x93, 0x01, 0x39]); legacy.writeUInt16LE(5, 16); legacy.writeUInt16LE(2, 32);
   assert.deepEqual(parseWifiUavFragment(legacy), { frameId: '5', fragmentId: 2, total: 3, mainCameraReady: false, flowCameraReady: false, payload: Buffer.from([0]) });
   assert.deepEqual(wifiUavJpeg([Buffer.from([0xff, 0xd8, 0xaa]), Buffer.from([0xbb, 0xff, 0xd9, 0x00])]), Buffer.from([0xff, 0xd8, 0xaa, 0xbb, 0xff, 0xd9]));
   assert.deepEqual([...wifiUavJpeg([Buffer.from([0xaa])]).subarray(0, 2)], [0xff, 0xd8]);
-  const slots = wifiUavAckSlots(new Map([['4', { total: 3, fragments: new Map([[0, Buffer.from([0])], [2, Buffer.from([0])]]) }]]), 4);
-  assert.equal(slots.length, 1); assert.equal(slots[0].readUInt32LE(8), 0x01000000); assert.equal(slots[0].readUInt32LE(12), 20); assert.equal(slots[0].readUInt32LE(16), 5);
+  const slots = wifiUavAckSlots(new Map([['4', { total: 3, fragments: new Map([[0, Buffer.from([0])], [2, Buffer.from([0])]]) }]]), 4, 0);
+  assert.equal(slots.length, 1); assert.equal(slots[0].readUInt32LE(8), 0); assert.equal(slots[0].readUInt32LE(12), 20); assert.equal(slots[0].readUInt32LE(16), 5);
 });
 
 test('Wi-Fi scan only offers supported drone SSIDs', () => {
