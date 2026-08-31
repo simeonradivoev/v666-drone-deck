@@ -51,7 +51,7 @@ ipcMain.handle('flight:connect', (_, options) => flight.connect(options.profileI
 ipcMain.handle('flight:update', (_, state) => flight.update(state));
 ipcMain.handle('flight:command', (_, flags) => flight.command(flags));
 ipcMain.handle('flight:disconnect', () => flight.stop());
-ipcMain.handle('video:start', (_, url) => video.start(url));
+ipcMain.handle('video:start', (_, url) => video.start(url, { socket: flight.getSocket() }));
 ipcMain.handle('video:stop', () => video.stopFfmpeg());
 ipcMain.handle('update:check', async () => {
   if (!app.isPackaged) return { state: 'development', message: 'Updates are checked by packaged AppImage builds.' };

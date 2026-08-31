@@ -84,6 +84,8 @@ An even smoother option is a cheap USB Wi-Fi adapter: keep the Deck's internal a
 | L1 (hold) | Deadman switch; permits stick values to be sent |
 | Left/right sticks | Channels selected by Mode 1/2/3/4 |
 | Release L1 | Immediately command neutral sticks |
+| A (hold) / B / X / Y / R1 | Take off / land / headless / calibrate / emergency stop |
+| Menu / View | Start selected camera / open the flight-link safety confirmation |
 | Touchscreen buttons | Hold-to-takeoff, land, calibrate, headless, emergency stop |
 
 Mode layouts follow conventional RC definitions:
@@ -98,6 +100,8 @@ Mode layouts follow conventional RC definitions:
 ## Camera notes
 
 The bridge tries common toy-drone RTSP endpoints, including `:7070/H264VideoSMS` and `:7070/webcam`, then uses `ffmpeg` to produce an in-app MJPEG feed. This is deliberately separate from flight control: camera viewing can work even when the aircraft protocol is still unknown.
+
+For the exact `FLOW_09B183` WiFi-UAV/FLD profile, select `wifi-uav://192.168.169.1` after discovery. That receiver uses the drone's native UDP stream requests and reconstructs its JPEG fragments; it does not use RTSP or `ffmpeg`.
 
 Wi-Fi FPV on this class of drone often has hundreds of milliseconds of latency. Keep the aircraft within visual line of sight and do not use the camera as the sole reference for close-proximity flying.
 

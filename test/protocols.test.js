@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { mapSticks, wifi8kPacket, flowUfoPacket, wifiUavFldPacket, buildPacket, suggestProfile } = require('../src/protocols');
+const { wifiUavRequest, wifiUavJpegHeader } = require('../src/video');
 
 test('Mode 2 maps throttle/yaw left and pitch/roll right', () => {
   assert.deepEqual(mapSticks(2, { leftX: .5, leftY: -.5, rightX: -.25, rightY: .25 }, 0), {
@@ -53,4 +54,14 @@ test('profile suggestion is conservative', () => {
   assert.equal(suggestProfile('FLOW-UFO-1234'), 'flowUfo');
   assert.equal(suggestProfile('FLOW_09B183'), 'wifiUavFld');
   assert.equal(suggestProfile('mystery-camera'), 'diagnostic');
+});
+
+test('WiFi-UAV camera requests match the native UDP envelope', () => {
+  const start = wifiUavRequest(7, false);
+  const ack = wifiUavRequest(7, true);
+  assert.equal(start.length, 88);
+  assert.equal(ack.length, 124);
+  assert.deepEqual([...ack.subarray(0, 9)], [0xef, 0x02, 0x7c, 0x00, 0x02, 0x02, 0x00, 0x01, 0x02]);
+  assert.equal(ack.readUInt32LE(12), 7);
+  assert.deepEqual([...wifiUavJpegHeader().subarray(0, 2)], [0xff, 0xd8]);
 });

@@ -13,6 +13,7 @@ const CAMERA_URLS = (host) => [
   `rtsp://${host}:7070/H264VideoSMS`,
   `rtsp://${host}:7070/webcam`,
   `rtsp://${host}:554/11`,
+  ...(host === '192.168.169.1' ? [`wifi-uav://${host}`] : []),
   `rtsp://${host}:554/live/ch00_0`
 ];
 
@@ -84,6 +85,10 @@ class FlightLink {
 
   update(next) {
     this.state = { ...this.state, ...next };
+  }
+
+  getSocket() {
+    return this.socket;
   }
 
   command(flags) {

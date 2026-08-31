@@ -3,6 +3,7 @@
 const api = window.deckDrone;
 const $ = (id) => document.getElementById(id);
 const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0 };
+let gamepadTakeoffTimer = null;
 const COMMAND = { takeoff:0x01, land:0x02, emergency:0x04, flip:0x08, headless:0x10, lock:0x20, unlock:0x40, calibrate:0x80 };
 
 function setStatus(text, good = false) { $('linkBadge').textContent = text; $('linkBadge').className = `badge ${good ? 'safe' : 'danger'}`; }
@@ -101,17 +102,40 @@ function remap(mode, physical) {
   return result;
 }
 
+function triggerControllerAction(id, flag) {
+  if (!$(''+id).disabled) api.command(flag);
+}
+
+function updateControllerShortcuts(pad) {
+  const previous = state.gamepadButtons || [];
+  const pressed = (index) => Boolean(pad.buttons[index]?.pressed);
+  const edge = (index) => pressed(index) && !previous[index];
+  if (edge(1)) triggerControllerAction('land', COMMAND.land);
+  if (edge(2)) triggerControllerAction('headless', COMMAND.headless);
+  if (edge(3)) triggerControllerAction('calibrate', COMMAND.calibrate);
+  if (edge(5)) triggerControllerAction('emergency', COMMAND.emergency);
+  if (edge(8) && !$('enableControl').disabled) $('enableControl').click();
+  if (edge(9)) startCamera();
+  if (pressed(0) && !previous[0] && !$('takeoff').disabled) {
+    $('takeoff').textContent = 'KEEP HOLDING…';
+    gamepadTakeoffTimer = setTimeout(() => { triggerControllerAction('takeoff', COMMAND.takeoff); $('takeoff').textContent = 'TAKEOFF SENT'; gamepadTakeoffTimer = null; }, 1200);
+  }
+  if (!pressed(0) && previous[0] && gamepadTakeoffTimer) { clearTimeout(gamepadTakeoffTimer); gamepadTakeoffTimer = null; $('takeoff').textContent = 'Hold to take off'; }
+  state.gamepadButtons = pad.buttons.map((button) => Boolean(button.pressed));
+}
+
 function gamepadLoop() {
   const pad=navigator.getGamepads?.()[0];
   $('gamepadDot').classList.toggle('on',Boolean(pad)); $('gamepadText').textContent=pad?'Steam controls ready':'Deck controls waiting';
   if(pad && state.info) {
     const deadman=Boolean(pad.buttons[4]?.pressed); // standard mapping: left bumper
     const gain=Number($('response').value)/100;
+    updateControllerShortcuts(pad);
     const mapped=remap(Number($('mode').value),pad.axes);
     state.axes=Object.fromEntries(Object.entries(mapped).map(([key,value])=>[key,deadman?value*gain:0]));
     if(state.connected) api.updateFlight(state.axes);
     for(const key of ['roll','pitch','throttle','yaw']) $(''+key+'Bar').style.transform=`scaleX(${Math.max(.02,(state.axes[key]+1)/2)})`;
-  }
+  } else if (state.gamepadButtons) { if (gamepadTakeoffTimer) clearTimeout(gamepadTakeoffTimer); gamepadTakeoffTimer = null; state.gamepadButtons = []; }
   if(state.armedAt) { const elapsed=Math.floor((Date.now()-state.armedAt)/1000); $('flightTimer').textContent=`${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}`; }
   requestAnimationFrame(gamepadLoop);
 }
