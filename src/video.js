@@ -7,12 +7,18 @@ const WIFI_UAV_START = Buffer.from([0xef, 0x00, 0x04, 0x00]);
 const WIFI_UAV_COMMAND = Buffer.from([0x66, 0x14, 0x80, 0x80, 0x80, 0x80, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x99]);
 const LUMA_QUANT = [16,11,10,16,24,40,51,61,12,12,14,19,26,58,60,55,14,13,16,24,40,57,69,56,14,17,22,29,51,87,80,62,18,22,37,56,68,109,103,77,24,35,55,64,81,104,113,92,49,64,78,87,103,121,120,101,72,92,95,98,112,100,103,99];
 const CHROMA_QUANT = [17,18,24,47,99,99,99,99,18,21,26,66,99,99,99,99,24,26,56,99,99,99,99,99,47,66,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99];
-function wifiUavJpegHeader(width = 640, height = 360) {
+function jpegQuantTable(table, quality = 50) {
+  const normalized = Math.max(1, Math.min(100, Number(quality) || 50));
+  const scale = normalized < 50 ? 5000 / normalized : 200 - normalized * 2;
+  return table.map((value) => Math.max(1, Math.min(255, Math.floor((value * scale + 50) / 100))));
+}
+function wifiUavJpegHeader(width = 640, height = 360, quality = 50) {
   const dqt = (id, table) => Buffer.from([0xff, 0xdb, 0x00, 0x43, id, ...table]);
   const sof = Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08, height >> 8, height & 0xff, width >> 8, width & 0xff, 0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01]);
   const sos = Buffer.from([0xff, 0xda, 0x00, 0x0c, 0x03, 0x01, 0x00, 0x02, 0x11, 0x03, 0x11, 0x00, 0x3f, 0x00]);
-  return Buffer.concat([Buffer.from([0xff, 0xd8]), dqt(0, LUMA_QUANT), dqt(1, CHROMA_QUANT), sof, sos]);
+  return Buffer.concat([Buffer.from([0xff, 0xd8]), dqt(0, jpegQuantTable(LUMA_QUANT, quality)), dqt(1, jpegQuantTable(CHROMA_QUANT, quality)), sof, sos]);
 }
+
 function wifiUavAckSlot(frameId, status, bitmap = Buffer.alloc(0)) {
   const slot = Buffer.alloc(16 + bitmap.length);
   slot.writeBigUInt64LE(BigInt(frameId), 0); slot.writeUInt32LE(status, 8); slot.writeUInt32LE(slot.length, 12); bitmap.copy(slot, 16);
@@ -44,13 +50,13 @@ function wifiUavPorts(host) {
   return host === '192.168.169.1' ? [8800, 8801] : [8800];
 }
 
-function wifiUavJpeg(parts) {
+function wifiUavJpeg(parts, width = 640, height = 360, quality = 50) {
   const payload = Buffer.concat(parts); const soi = payload.indexOf(Buffer.from([0xff, 0xd8]));
   if (soi >= 0) {
     const eoi = payload.indexOf(Buffer.from([0xff, 0xd9]), soi + 2);
     return eoi >= 0 ? payload.subarray(soi, eoi + 2) : Buffer.concat([payload.subarray(soi), Buffer.from([0xff, 0xd9])]);
   }
-  return Buffer.concat([wifiUavJpegHeader(), payload, Buffer.from([0xff, 0xd9])]);
+  return Buffer.concat([wifiUavJpegHeader(width, height, quality), payload, Buffer.from([0xff, 0xd9])]);
 }
 
 function parseWifiUavFragment(packet) {
@@ -58,9 +64,9 @@ function parseWifiUavFragment(packet) {
   if (packet.readUInt16LE(2) === packet.length) {
     const total = packet.readUInt32LE(36);
     const fragmentId = packet.readUInt32LE(32);
-    const payloadLength = packet.readUInt32LE(40);
-    const payloadEnd = payloadLength > 0 && payloadLength <= packet.length - 56 ? 56 + payloadLength : packet.length;
-    if (total > 0 && fragmentId < total) return { frameId: packet.readBigUInt64LE(8).toString(), fragmentId, total, mainCameraReady: packet[52] !== 0, flowCameraReady: packet[53] !== 0, payload: packet.subarray(56, payloadEnd) };
+    const frameLength = packet.readUInt32LE(40);
+    const payloadLength = fragmentId === total - 1 ? (frameLength % 1024 || 1024) : 1024;
+    if (total > 0 && fragmentId < total && packet.length >= 56 + payloadLength) return { frameId: packet.readBigUInt64LE(8).toString(), fragmentId, total, frameLength, width: packet.readUInt16LE(44), height: packet.readUInt16LE(46), quality: packet[48], mainCameraReady: packet[52] !== 0, flowCameraReady: packet[53] !== 0, payload: packet.subarray(56, 56 + payloadLength) };
   }
   // Older FLD firmware reports 16-bit counters and only reveals the total on the tail packet.
   const fragmentId = packet.readUInt16LE(32);
@@ -119,13 +125,14 @@ class MjpegBridge extends EventEmitter {
       state.mainCameraReady = fragment.mainCameraReady; state.flowCameraReady = fragment.flowCameraReady;
       state.received = true; state.fragments += 1; state.lastFragmentAt = Date.now(); state.stallReported = false;
       if (state.fragments === 1 || state.fragments % 12 === 0) this.emit('status', { running: true, url: `wifi-uav://${host}`, packets: state.packets, fragments: state.fragments, frames: state.completedFrames, camera, mainCameraReady: state.mainCameraReady, flowCameraReady: state.flowCameraReady });
-      const frame = state.frames.get(fragment.frameId) || { total: fragment.total, fragments: new Map() };
+      const frame = state.frames.get(fragment.frameId) || { total: fragment.total, frameLength: fragment.frameLength, width: fragment.width, height: fragment.height, quality: fragment.quality, fragments: new Map() };
       if (fragment.total) frame.total = fragment.total;
+      frame.frameLength = fragment.frameLength; frame.width = fragment.width; frame.height = fragment.height; frame.quality = fragment.quality;
       frame.fragments.set(fragment.fragmentId, fragment.payload); state.frames.set(fragment.frameId, frame);
       if (!frame.total || frame.fragments.size !== frame.total) return;
       const parts = []; for (let index = 0; index < frame.total; index++) { const part = frame.fragments.get(index); if (!part) return; parts.push(part); }
       frame.complete = true;
-      this.publishFrame(wifiUavJpeg(parts));
+      this.publishFrame(wifiUavJpeg(parts, frame.width, frame.height, frame.quality));
       state.completedFrames += 1;
       this.emit('status', { running: true, url: `wifi-uav://${host}`, packets: state.packets, fragments: state.fragments, frames: state.completedFrames, camera, mainCameraReady: state.mainCameraReady, flowCameraReady: state.flowCameraReady });
       request(Number(fragment.frameId));
