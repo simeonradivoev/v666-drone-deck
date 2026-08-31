@@ -13,12 +13,28 @@ function wifiUavJpegHeader(width = 640, height = 360) {
   const sos = Buffer.from([0xff, 0xda, 0x00, 0x0c, 0x03, 0x01, 0x00, 0x02, 0x11, 0x03, 0x11, 0x00, 0x3f, 0x00]);
   return Buffer.concat([Buffer.from([0xff, 0xd8]), dqt(0, LUMA_QUANT), dqt(1, CHROMA_QUANT), sof, sos]);
 }
-function wifiUavRequest(frameId, includeAcks) {
-  const packet = Buffer.alloc(includeAcks ? 124 : 88);
-  packet.set([0xef, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x01, includeAcks ? 2 : 0], 0);
+function wifiUavAckSlot(frameId, status, bitmap = Buffer.alloc(0)) {
+  const slot = Buffer.alloc(16 + bitmap.length);
+  slot.writeBigUInt64LE(BigInt(frameId), 0); slot.writeUInt32LE(status, 8); slot.writeUInt32LE(slot.length, 12); bitmap.copy(slot, 16);
+  return slot;
+}
+function wifiUavAckSlots(frames, fallbackFrameId) {
+  const slots = [];
+  for (const [frameId, frame] of frames) {
+    if (!frame.total) continue;
+    const bitmap = Buffer.alloc(Math.ceil(frame.total / 32) * 4);
+    for (const fragmentId of frame.fragments.keys()) bitmap.writeUInt32LE((bitmap.readUInt32LE(Math.floor(fragmentId / 32) * 4) | (1 << (fragmentId % 32))) >>> 0, Math.floor(fragmentId / 32) * 4);
+    slots.push(wifiUavAckSlot(frameId, frame.complete ? 1 : 0, bitmap));
+  }
+  return slots.length ? slots : [wifiUavAckSlot(fallbackFrameId, 1, Buffer.from([0xff, 0xff, 0xff, 0xff])), wifiUavAckSlot(fallbackFrameId, 3)];
+}
+function wifiUavRequest(frameId, includeAcks, ackSlots = null) {
+  const slots = includeAcks ? (ackSlots || [wifiUavAckSlot(frameId, 1, Buffer.from([0xff, 0xff, 0xff, 0xff])), wifiUavAckSlot(frameId, 3)]) : [];
+  const packet = Buffer.alloc(88 + slots.reduce((length, slot) => length + slot.length, 0));
+  packet.set([0xef, 0x02, 0x00, 0x00, 0x02, 0x02, 0x00, 0x01, slots.length], 0);
   packet.writeUInt32LE(frameId >>> 0, 12); packet.writeUInt16LE(WIFI_UAV_COMMAND.length, 16); WIFI_UAV_COMMAND.copy(packet, 18);
   packet.set([0x32, 0x4b, 0x14, 0x2d, 0x00], 82);
-  if (includeAcks) { packet.writeBigUInt64LE(BigInt(frameId), 88); packet.writeUInt32LE(1, 96); packet.writeUInt32LE(20, 100); packet.writeUInt32LE(0xffffffff, 104); packet.writeBigUInt64LE(BigInt(frameId), 108); packet.writeUInt32LE(3, 116); packet.writeUInt32LE(16, 120); }
+  let offset = 88; for (const slot of slots) { slot.copy(packet, offset); offset += slot.length; }
   packet.writeUInt16LE(packet.length, 2);
   return packet;
 }
@@ -80,7 +96,7 @@ class MjpegBridge extends EventEmitter {
       for (const port of wifiUavPorts(host)) {
         if (includeStart) udp.send(WIFI_UAV_START, port, host);
         udp.send(wifiUavRequest(frameId, false), port, host);
-        udp.send(wifiUavRequest(frameId, true), port, host);
+        udp.send(wifiUavRequest(frameId, true, wifiUavAckSlots(state.frames, frameId)), port, host);
       }
     };
     state.onMessage = (packet) => {
@@ -93,14 +109,15 @@ class MjpegBridge extends EventEmitter {
       frame.fragments.set(fragment.fragmentId, fragment.payload); state.frames.set(fragment.frameId, frame);
       if (!frame.total || frame.fragments.size !== frame.total) return;
       const parts = []; for (let index = 0; index < frame.total; index++) { const part = frame.fragments.get(index); if (!part) return; parts.push(part); }
-      state.frames.clear(); state.frameId = Number(BigInt(fragment.frameId) + 1n);
+      frame.complete = true;
       this.publishFrame(Buffer.concat([wifiUavJpegHeader(), ...parts, Buffer.from([0xff, 0xd9])]));
       state.completedFrames += 1;
       this.emit('status', { running: true, url: `wifi-uav://${host}`, packets: state.packets, fragments: state.fragments, frames: state.completedFrames });
-      request(state.frameId);
+      request(Number(fragment.frameId));
+      state.frames.clear(); state.frameId = Number(BigInt(fragment.frameId) + 1n);
     };
     udp.on('message', state.onMessage);
-    state.timer = setInterval(() => request(state.frameId, !state.received), 80);
+    state.timer = setInterval(() => request(Math.max(0, state.frameId - 1), !state.received), 80);
     state.timeout = setTimeout(() => {
       if (!state.received) this.emit('error', new Error(`WiFi-UAV camera received ${state.packets} UDP packets but no FLD video fragments.`));
     }, 5000);
@@ -172,4 +189,4 @@ class MjpegBridge extends EventEmitter {
   }
 }
 
-module.exports = { MjpegBridge, wifiUavRequest, wifiUavJpegHeader, wifiUavPorts, parseWifiUavFragment };
+module.exports = { MjpegBridge, wifiUavRequest, wifiUavJpegHeader, wifiUavPorts, parseWifiUavFragment, wifiUavAckSlots };
