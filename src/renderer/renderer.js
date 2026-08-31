@@ -141,6 +141,44 @@ function triggerControllerAction(id, flag) {
   if (!$(''+id).disabled) api.command(flag);
 }
 
+function gamepadFocusable() {
+  return [...document.querySelectorAll('button, input, select')].filter((element) => !element.disabled && !element.hidden && element.getClientRects().length);
+}
+function setGamepadFocus(element) {
+  document.querySelector('.gamepad-focus')?.classList.remove('gamepad-focus');
+  element.classList.add('gamepad-focus'); element.focus({ preventScroll: true }); element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function moveGamepadFocus(direction) {
+  const items = gamepadFocusable(); if (!items.length) return;
+  const current = items.includes(document.activeElement) ? document.activeElement : items[0];
+  if (!items.includes(document.activeElement)) { setGamepadFocus(current); return; }
+  const origin = current.getBoundingClientRect(); const ox = origin.left + origin.width / 2; const oy = origin.top + origin.height / 2;
+  const candidates = items.filter((item) => item !== current).map((item) => {
+    const rect = item.getBoundingClientRect(); const dx = rect.left + rect.width / 2 - ox; const dy = rect.top + rect.height / 2 - oy;
+    const primary = direction === 'left' ? -dx : direction === 'right' ? dx : direction === 'up' ? -dy : dy;
+    const secondary = direction === 'left' || direction === 'right' ? Math.abs(dy) : Math.abs(dx);
+    return { item, primary, secondary };
+  }).filter((candidate) => candidate.primary > 3).sort((a, b) => (a.primary * 3 + a.secondary) - (b.primary * 3 + b.secondary));
+  setGamepadFocus(candidates[0]?.item || current);
+}
+function adjustFocusedControl(step) {
+  const focused = document.activeElement;
+  if (focused instanceof HTMLSelectElement) {
+    focused.selectedIndex = (focused.selectedIndex + step + focused.options.length) % focused.options.length;
+    focused.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (focused instanceof HTMLInputElement && focused.type === 'range') {
+    focused.value = String(Math.max(Number(focused.min || 0), Math.min(Number(focused.max || 100), Number(focused.value) + step * Number(focused.step || 1))));
+    focused.dispatchEvent(new Event('input', { bubbles: true }));
+  } else moveGamepadFocus(step < 0 ? 'left' : 'right');
+}
+function updateGamepadNavigation(pad) {
+  if (state.connected) return;
+  const previous = state.gamepadButtons || []; const pressed = (index) => Boolean(pad.buttons[index]?.pressed); const edge = (index) => pressed(index) && !previous[index];
+  if (edge(12)) moveGamepadFocus('up'); if (edge(13)) moveGamepadFocus('down');
+  if (edge(14)) adjustFocusedControl(-1); if (edge(15)) adjustFocusedControl(1);
+  if (edge(0)) { const focused = document.activeElement; if (focused instanceof HTMLSelectElement) focused.click(); else if (gamepadFocusable().includes(focused)) focused.click(); }
+}
+
 function updateControllerShortcuts(pad) {
   const previous = state.gamepadButtons || [];
   const pressed = (index) => Boolean(pad.buttons[index]?.pressed);
@@ -161,10 +199,11 @@ function updateControllerShortcuts(pad) {
 
 function gamepadLoop() {
   const pad=navigator.getGamepads?.()[0];
-  $('gamepadDot').classList.toggle('on',Boolean(pad)); $('gamepadText').textContent=pad?'Steam controls ready':'Deck controls waiting';
+  $('gamepadDot').classList.toggle('on',Boolean(pad)); $('gamepadText').textContent=pad ? (state.connected ? 'Flight controls active' : 'D-pad navigates • A activates') : 'Deck controls waiting';
   if(pad && state.info) {
     const deadman=Boolean(pad.buttons[4]?.pressed); // standard mapping: left bumper
     const gain=Number($('response').value)/100;
+    updateGamepadNavigation(pad);
     updateControllerShortcuts(pad);
     const mapped=remap(Number($('mode').value),pad.axes);
     state.axes=Object.fromEntries(Object.entries(mapped).map(([key,value])=>[key,deadman?value*gain:0]));

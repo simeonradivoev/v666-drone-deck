@@ -85,6 +85,8 @@ An even smoother option is a cheap USB Wi-Fi adapter: keep the Deck's internal a
 | Left/right sticks | Channels selected by Mode 1/2/3/4 |
 | Release L1 | Immediately command neutral sticks |
 | A (hold) / B / X / Y / R1 | Take off / land / headless / calibrate / emergency stop |
+| D-pad / A | Move the visible UI focus / activate the focused control (while flight link is disconnected) |
+| D-pad left/right on a dropdown or slider | Change the selected option or value |
 | Menu / View | Start selected camera / open the flight-link safety confirmation |
 | Touchscreen buttons | Hold-to-takeoff, land, calibrate, headless, emergency stop |
 
