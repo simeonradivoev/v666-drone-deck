@@ -60,10 +60,12 @@ test('profile suggestion is conservative', () => {
 test('WiFi-UAV camera requests match the native UDP envelope', () => {
   const start = wifiUavRequest(7, false);
   const ack = wifiUavRequest(7, true);
+  const flow = wifiUavRequest(7, false, null, 1);
   assert.equal(start.length, 88);
   assert.equal(ack.length, 124);
   assert.deepEqual([...ack.subarray(0, 9)], [0xef, 0x02, 0x7c, 0x00, 0x02, 0x02, 0x00, 0x01, 0x02]);
   assert.equal(ack.readUInt32LE(12), 7);
+  assert.equal(start[86], 0); assert.equal(flow[86], 1);
   assert.deepEqual([...wifiUavJpegHeader().subarray(0, 2)], [0xff, 0xd8]);
   assert.deepEqual(wifiUavPorts('192.168.169.1'), [8800, 8801]);
   assert.deepEqual(wifiUavPorts('192.168.4.153'), [8800]);
@@ -74,7 +76,7 @@ test('WiFi-UAV camera requests match the native UDP envelope', () => {
   assert.deepEqual(parseWifiUavFragment(legacy), { frameId: '5', fragmentId: 2, total: 3, mainCameraReady: false, flowCameraReady: false, payload: Buffer.from([0]) });
   assert.deepEqual(wifiUavJpeg([Buffer.from([0xff, 0xd8, 0xaa]), Buffer.from([0xbb, 0xff, 0xd9, 0x00])]), Buffer.from([0xff, 0xd8, 0xaa, 0xbb, 0xff, 0xd9]));
   assert.deepEqual([...wifiUavJpeg([Buffer.from([0xaa])]).subarray(0, 2)], [0xff, 0xd8]);
-  const slots = wifiUavAckSlots(new Map([['4', { total: 3, fragments: new Map([[0, Buffer.from([0])], [2, Buffer.from([0])]]) }]]), 4, 0);
+  const slots = wifiUavAckSlots(new Map([['4', { total: 3, fragments: new Map([[0, Buffer.from([0])], [2, Buffer.from([0])]]) }]]), 4);
   assert.equal(slots.length, 1); assert.equal(slots[0].readUInt32LE(8), 0); assert.equal(slots[0].readUInt32LE(12), 20); assert.equal(slots[0].readUInt32LE(16), 5);
 });
 
