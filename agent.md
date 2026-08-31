@@ -42,6 +42,10 @@ Run syntax checks for modified JavaScript files and keep packet-format tests det
 
 Live camera display requires `ffmpeg` on `PATH`. A custom binary can be supplied through `CHINA_DRONE_FFMPEG`.
 
+## Git commits
+
+- Always commit completed, intended changes using a Conventional Commit message. Stage only files related to the task; never include unrelated changes.
+
 ## Implementation conventions
 
 - Keep Electron context isolation enabled and Node integration disabled in the renderer.
