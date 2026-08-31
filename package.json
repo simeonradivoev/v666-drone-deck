@@ -10,7 +10,7 @@
     "test": "node --test test/*.test.js",
     "release": "commit-and-tag-version",
     "pack": "electron-builder --dir",
-    "dist:linux": "electron-builder --linux AppImage"
+    "dist:linux": "electron-builder --linux AppImage --publish never"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"
