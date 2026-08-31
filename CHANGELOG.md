@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.10](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.9...v0.1.10) (2026-08-31)
+
+### Bug Fixes
+
+* guard flight status during shutdown ([e91082b](https://github.com/simeonradivoev/v666-drone-deck/commit/e91082bad9d04b5388ea1b4da2b591d00e7b055f))
+* preserve native camera jpeg frames ([b118a72](https://github.com/simeonradivoev/v666-drone-deck/commit/b118a7254b4fd87601f97fd19f61e382b90a44a5))
 ## [0.1.9](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.8...v0.1.9) (2026-08-31)
 
 ### Features
