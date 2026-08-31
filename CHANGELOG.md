@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.11](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.10...v0.1.11) (2026-08-31)
+
+### Bug Fixes
+
+* render camera frames directly ([60ce8e0](https://github.com/simeonradivoev/v666-drone-deck/commit/60ce8e01a84298f06312b3762732dddc8a78aa40))
 ## [0.1.10](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.9...v0.1.10) (2026-08-31)
 
 ### Bug Fixes
