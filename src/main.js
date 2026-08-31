@@ -1,6 +1,8 @@
 'use strict';
 
 const path = require('node:path');
+const os = require('node:os');
+const fs = require('node:fs/promises');
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { PROFILES, MODE_MAPS, suggestProfile } = require('./protocols');
@@ -12,6 +14,22 @@ const video = new MjpegBridge();
 const flight = new FlightLink((status) => window?.webContents.send('flight:status', status));
 
 function send(channel, payload) { window?.webContents.send(channel, payload); }
+
+const updateMarkerPath = () => path.join(app.getPath('userData'), 'downloaded-update.json');
+const updaterCachePath = () => path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'china-drone-deck-updater');
+async function markDownloadedUpdate(version) {
+  await fs.mkdir(app.getPath('userData'), { recursive: true });
+  await fs.writeFile(updateMarkerPath(), JSON.stringify({ version }), 'utf8');
+}
+async function clearAppliedUpdateCache() {
+  if (process.platform !== 'linux') return;
+  try {
+    const { version } = JSON.parse(await fs.readFile(updateMarkerPath(), 'utf8'));
+    if (version !== app.getVersion()) return;
+    await fs.rm(updaterCachePath(), { recursive: true, force: true });
+    await fs.rm(updateMarkerPath(), { force: true });
+  } catch (_) {}
+}
 
 function createWindow() {
   window = new BrowserWindow({
@@ -30,11 +48,15 @@ function configureUpdater() {
   autoUpdater.on('update-not-available', () => send('update:status', { state: 'current' }));
   autoUpdater.on('update-available', (info) => send('update:status', { state: 'downloading', version: info.version }));
   autoUpdater.on('download-progress', (progress) => send('update:status', { state: 'downloading', percent: Math.round(progress.percent) }));
-  autoUpdater.on('update-downloaded', (info) => send('update:status', { state: 'ready', version: info.version }));
+  autoUpdater.on('update-downloaded', async (info) => {
+    try { await markDownloadedUpdate(info.version); } catch (_) {}
+    send('update:status', { state: 'ready', version: info.version });
+  });
   autoUpdater.on('error', (error) => send('update:status', { state: 'error', message: error.message }));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await clearAppliedUpdateCache();
   createWindow();
   configureUpdater();
   if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {});

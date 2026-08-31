@@ -70,7 +70,7 @@ The intended flow is:
 
 1. When the app opens on normal internet Wi-Fi, it automatically checks and stages an available update. Use **Update Bay → Check & stage** to check again manually.
 2. The AppImage update downloads into Electron's update cache.
-3. Connect to the drone Wi-Fi. The staged update remains available without internet.
+3. Connect to the drone Wi-Fi. The staged update remains available without internet. After the updated app launches successfully, it automatically removes its staged download from `~/.cache/china-drone-deck-updater`.
 4. Choose **Restart & install** at a safe time, never during a flight.
 
 Tag a release such as `v0.1.2`; the included workflow builds the AppImage, publishes it to the GitHub Release, and uploads the `latest-linux.yml` metadata used by the updater. Until the first release is published, download an AppImage on any internet connection and use `scripts/install-steamdeck.sh` to replace the installed copy.
