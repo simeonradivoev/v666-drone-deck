@@ -11,7 +11,7 @@ const { MjpegBridge } = require('./video');
 
 let window;
 const video = new MjpegBridge();
-const flight = new FlightLink((status) => window?.webContents.send('flight:status', status));
+const flight = new FlightLink((status) => send('flight:status', status));
 
 function send(channel, payload) {
   if (!window || window.isDestroyed() || window.webContents.isDestroyed()) return;
