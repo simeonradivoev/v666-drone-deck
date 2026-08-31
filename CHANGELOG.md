@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.5](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.4...v0.1.5) (2026-08-31)
+
+### Bug Fixes
+
+* improve WiFi UAV camera prompts ([d48f13d](https://github.com/simeonradivoev/v666-drone-deck/commit/d48f13d6c06a85f753a1ebd8e7240af430818331))
 ## [0.1.4](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.3...v0.1.4) (2026-08-31)
 
 ### Features
