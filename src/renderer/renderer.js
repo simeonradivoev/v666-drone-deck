@@ -2,7 +2,7 @@
 
 const api = window.deckDrone;
 const $ = (id) => document.getElementById(id);
-const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0, videoFrame: false };
+const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0, videoFrame: false, cameraOrientations: { main: null, flow: null } };
 let gamepadTakeoffTimer = null;
 let settingsTimer = null;
 const COMMAND = { takeoff:0x01, land:0x02, emergency:0x04, flip:0x08, headless:0x10, lock:0x20, unlock:0x40, calibrate:0x80 };
@@ -26,17 +26,32 @@ function applyProfileDefaults() {
   updateProfileUI();
 }
 
+function selectedCameraSource() { return $('cameraSource').value === 'flow' ? 'flow' : 'main'; }
+function defaultCameraOrientation(source, url = $('cameraUrl').value) {
+  if (!url.startsWith('wifi-uav://')) return 'normal';
+  return source === 'main' ? 'mirror-horizontal' : 'normal';
+}
+function syncCameraOrientation() {
+  const source = selectedCameraSource();
+  $('cameraOrientation').value = state.cameraOrientations[source] || defaultCameraOrientation(source);
+  applyCameraOrientation();
+}
 function currentSettings() {
-  return { ssid: $('ssid').value, host: $('host').value, cameraUrl: $('cameraUrl').value, cameraSource: $('cameraSource').value, cameraOrientation: $('cameraOrientation').value, profile: $('profile').value, mode: $('mode').value, response: $('response').value, protocolConfirmed: $('protocolConfirmed').checked };
+  return { ssid: $('ssid').value, host: $('host').value, cameraUrl: $('cameraUrl').value, cameraSource: $('cameraSource').value, cameraOrientationMain: state.cameraOrientations.main, cameraOrientationFlow: state.cameraOrientations.flow, profile: $('profile').value, mode: $('mode').value, response: $('response').value, protocolConfirmed: $('protocolConfirmed').checked };
 }
 function applySettings(settings) {
-  for (const key of ['ssid', 'host', 'cameraSource', 'cameraOrientation', 'mode', 'response']) if (typeof settings[key] === 'string' && $(key)) $(key).value = settings[key];
+  for (const key of ['ssid', 'host', 'cameraSource', 'mode', 'response']) if (typeof settings[key] === 'string' && $(key)) $(key).value = settings[key];
+  const legacyOrientation = typeof settings.cameraOrientation === 'string' ? settings.cameraOrientation : null;
+  state.cameraOrientations.main = typeof settings.cameraOrientationMain === 'string' ? settings.cameraOrientationMain : legacyOrientation;
+  state.cameraOrientations.flow = typeof settings.cameraOrientationFlow === 'string' ? settings.cameraOrientationFlow : legacyOrientation;
   if (settings.profile && state.info.profiles[settings.profile]) $('profile').value = settings.profile;
   if (typeof settings.protocolConfirmed === 'boolean') $('protocolConfirmed').checked = settings.protocolConfirmed;
   if (settings.cameraUrl) addCameraOptions([settings.cameraUrl]);
-  if (typeof settings.cameraOrientation === 'string') $('cameraOrientation').dataset.userSelected = 'true';
+  syncCameraOrientation();
   $('responseValue').textContent = `${$('response').value}%`; updateProfileUI();
 }
+
+
 function scheduleSettingsSave() {
   localStorage.setItem('droneSettings', JSON.stringify(currentSettings()));
   clearTimeout(settingsTimer); settingsTimer = setTimeout(() => api.saveSettings(currentSettings()).catch(() => {}), 150);
@@ -61,8 +76,10 @@ function bindEvents() {
   $('host').addEventListener('input', updateProfileUI);
   $('ssid').addEventListener('change', async () => { $('profile').value=await api.suggestProfile($('ssid').value); applyProfileDefaults(); });
   $('response').addEventListener('input', () => $('responseValue').textContent=`${$('response').value}%`);
-  for (const id of ['ssid', 'host', 'cameraUrl', 'cameraSource', 'cameraOrientation', 'profile', 'mode', 'response', 'protocolConfirmed']) $(id).addEventListener(id === 'response' || id === 'host' ? 'input' : 'change', scheduleSettingsSave);
-  $('cameraOrientation').addEventListener('change', () => { $('cameraOrientation').dataset.userSelected = 'true'; applyCameraOrientation(); });
+  for (const id of ['ssid', 'host', 'cameraUrl', 'profile', 'mode', 'response', 'protocolConfirmed']) $(id).addEventListener(id === 'response' || id === 'host' ? 'input' : 'change', scheduleSettingsSave);
+  $('cameraSource').addEventListener('change', () => { syncCameraOrientation(); scheduleSettingsSave(); });
+  $('cameraOrientation').addEventListener('change', () => { state.cameraOrientations[selectedCameraSource()] = $('cameraOrientation').value; applyCameraOrientation(); scheduleSettingsSave(); });
+
   $('discover').addEventListener('click', discover);
   $('scanDroneWifi').addEventListener('click', scanDroneWifi);
   $('joinDroneWifi').addEventListener('click', joinDroneWifi);
@@ -144,9 +161,9 @@ async function startCamera() {
   if(!url) return;
   try {
     state.videoFrame = false;
-    if (!$('cameraOrientation').dataset.userSelected) $('cameraOrientation').value = url.startsWith('wifi-uav://') ? 'mirror-horizontal' : 'normal';
-    applyCameraOrientation();
-    const source = url.startsWith('wifi-uav://') ? $('cameraSource').value : 'main';
+    const source = url.startsWith('wifi-uav://') ? selectedCameraSource() : 'main';
+    if (!state.cameraOrientations[source]) state.cameraOrientations[source] = defaultCameraOrientation(source, url);
+    syncCameraOrientation();
     const result=await api.startVideo(url, source);
     // Frames are delivered directly over Electron IPC, avoiding browser multipart-stream decoding.
     $('camera').removeAttribute('src');
