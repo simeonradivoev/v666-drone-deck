@@ -13,7 +13,7 @@ A Steam Deck-first ground station for the inexpensive V666 family of Wi-Fi camer
 - `FLOW-UFO-*` / KY UFO UDP control profile: implemented, requires hardware verification
 - RTSP camera probing and in-app MJPEG bridge: implemented (requires `ffmpeg` on `PATH`)
 - Conservative camera-only mode: implemented and selected by default
-- GitHub release/AppImage update staging: implemented; publishing coordinates must be configured
+- GitHub release/AppImage self-updates: implemented
 - Tested against a physical Lenovo-branded V666: **not yet**
 
 The last line matters. The app is ready for a props-off hardware identification session, not an unobserved first flight.
@@ -67,12 +67,12 @@ Then, in Steam Desktop Mode, choose **Games → Add a Non-Steam Game**, select C
 
 The intended flow is:
 
-1. While the Deck is on normal internet Wi-Fi, open **Update Bay → Check & stage**.
+1. When the app opens on normal internet Wi-Fi, it automatically checks and stages an available update. Use **Update Bay → Check & stage** to check again manually.
 2. The AppImage update downloads into Electron's update cache.
 3. Connect to the drone Wi-Fi. The staged update remains available without internet.
 4. Choose **Restart & install** at a safe time, never during a flight.
 
-For automatic releases, replace `CHANGE_ME` in `package.json` with the GitHub account that hosts this repository. Tag a release such as `v0.1.1`; the included workflow builds the AppImage and `latest-linux.yml` metadata. Until a repository is configured, download an AppImage on any internet connection and use `scripts/install-steamdeck.sh` to replace the installed copy.
+Tag a release such as `v0.1.2`; the included workflow builds the AppImage, publishes it to the GitHub Release, and uploads the `latest-linux.yml` metadata used by the updater. Until the first release is published, download an AppImage on any internet connection and use `scripts/install-steamdeck.sh` to replace the installed copy.
 
 An even smoother option is a cheap USB Wi-Fi adapter: keep the Deck's internal adapter connected to the drone and the USB adapter connected to the internet. The app does not require this, but it makes release checks and documentation access possible while connected to the aircraft.
 

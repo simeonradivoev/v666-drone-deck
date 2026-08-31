@@ -35,8 +35,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "CHANGE_ME",
-      "repo": "china-drone-deck"
+      "owner": "simeonradivoev",
+      "repo": "v666-drone-deck"
     }
   }
 }

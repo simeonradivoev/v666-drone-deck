@@ -37,6 +37,7 @@ function configureUpdater() {
 app.whenReady().then(() => {
   createWindow();
   configureUpdater();
+  if (app.isPackaged) autoUpdater.checkForUpdates().catch(() => {});
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 
