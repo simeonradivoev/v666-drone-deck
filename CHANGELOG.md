@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.6](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.5...v0.1.6) (2026-08-31)
+
+### Bug Fixes
+
+* support FLD camera fragments ([822e556](https://github.com/simeonradivoev/v666-drone-deck/commit/822e556681ad8298e1eb24f7f1029f2f3391cd52))
 ## [0.1.5](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.4...v0.1.5) (2026-08-31)
 
 ### Bug Fixes
