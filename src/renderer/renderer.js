@@ -81,6 +81,7 @@ function bindEvents() {
   api.onFlightStatus((status) => { state.connected=Boolean(status.connected); setStatus(status.connected ? 'CONTROL LINKED' : status.error || 'DISCONNECTED', status.connected); document.querySelectorAll('.action-grid button').forEach((button)=>button.disabled=!status.connected); });
   api.onVideoStatus((status) => {
     if (status.frame) { state.videoFrame = true; $('camera').style.display='block'; $('cameraPlaceholder').style.display='none'; }
+    if (!status.frame && Number.isInteger(status.fragments)) $('networkStatus').textContent = `Camera data: ${status.packets} UDP packets, ${status.fragments} fragments, ${status.frames || 0} frames.`;
     if(status.error){$('networkStatus').textContent=status.error;$('camera').style.display='none';$('cameraPlaceholder').style.display='flex';}
   });
   api.onVideoLog((message) => { if(message) $('networkStatus').textContent=message.slice(-90); });

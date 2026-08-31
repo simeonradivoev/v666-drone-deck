@@ -91,7 +91,7 @@ class MjpegBridge extends EventEmitter {
     const ownsSocket = !socket;
     const udp = socket || require('node:dgram').createSocket('udp4');
     if (ownsSocket) await new Promise((resolve) => udp.bind(0, resolve));
-    const state = { host, udp, ownsSocket, frameId: 1, frames: new Map(), timer: null, timeout: null, received: false, packets: 0, fragments: 0, completedFrames: 0, onMessage: null };
+    const state = { host, udp, ownsSocket, frameId: 1, frames: new Map(), timer: null, timeout: null, received: false, packets: 0, fragments: 0, completedFrames: 0, lastFragmentAt: Date.now(), stallReported: false, onMessage: null };
     const request = (frameId, includeStart = false) => {
       for (const port of wifiUavPorts(host)) {
         if (includeStart) udp.send(WIFI_UAV_START, port, host);
@@ -103,7 +103,8 @@ class MjpegBridge extends EventEmitter {
       state.packets += 1;
       const fragment = parseWifiUavFragment(packet);
       if (!fragment) return;
-      state.received = true; state.fragments += 1; clearTimeout(state.timeout);
+      state.received = true; state.fragments += 1; state.lastFragmentAt = Date.now(); state.stallReported = false;
+      if (state.fragments === 1 || state.fragments % 12 === 0) this.emit('status', { running: true, url: `wifi-uav://${host}`, packets: state.packets, fragments: state.fragments, frames: state.completedFrames });
       const frame = state.frames.get(fragment.frameId) || { total: fragment.total, fragments: new Map() };
       if (fragment.total) frame.total = fragment.total;
       frame.fragments.set(fragment.fragmentId, fragment.payload); state.frames.set(fragment.frameId, frame);
@@ -118,9 +119,11 @@ class MjpegBridge extends EventEmitter {
     };
     udp.on('message', state.onMessage);
     state.timer = setInterval(() => request(Math.max(0, state.frameId - 1), !state.received), 80);
-    state.timeout = setTimeout(() => {
-      if (!state.received) this.emit('error', new Error(`WiFi-UAV camera received ${state.packets} UDP packets but no FLD video fragments.`));
-    }, 5000);
+    state.timeout = setInterval(() => {
+      if (state.stallReported || Date.now() - state.lastFragmentAt < 5000) return;
+      state.stallReported = true;
+      this.emit('error', new Error(`WiFi-UAV camera stalled: ${state.packets} UDP packets, ${state.fragments} FLD fragments, ${state.completedFrames} completed frames.`));
+    }, 1000);
     this.wifi = state;
     request(0, true);
     this.emit('status', { running: true, url: `wifi-uav://${host}` });
