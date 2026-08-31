@@ -24,6 +24,7 @@ const PROFILES = Object.freeze({
   },
   wifiUavFld: {
     id: 'wifiUavFld', label: 'FLOW_09B183 / WiFi UAV (FLD)', controlPort: 8800,
+    defaultHost: '192.168.169.1', cameraUrl: 'wifi-uav://192.168.169.1', cameraPorts: [8800, 8801],
     ssid: [/^FLOW_09B183$/i],
     description: '124-byte WiFi UAV/FLD UDP protocol for the exact FLOW_09B183 SSID. Test with propellers removed first.'
   }

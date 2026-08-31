@@ -16,7 +16,13 @@ function updateProfileUI() {
 }
 
 function addCameraOptions(urls) {
-  $('cameraUrl').replaceChildren(...urls.map((url) => { const option=document.createElement('option');option.value=url;option.textContent=url;return option; }));
+  $('cameraUrl').replaceChildren(...urls.map((url) => { const option=document.createElement('option'); option.value=url; option.textContent=url.startsWith('wifi-uav://') ? `WiFi UAV native UDP — ${new URL(url).hostname}` : url; return option; }));
+}
+function applyProfileDefaults() {
+  const profile = selectedProfile();
+  if (profile.defaultHost) $('host').value = profile.defaultHost;
+  if (profile.cameraUrl) addCameraOptions([profile.cameraUrl]);
+  updateProfileUI();
 }
 
 async function init() {
@@ -31,10 +37,10 @@ async function init() {
 }
 
 function bindEvents() {
-  $('profile').addEventListener('change', updateProfileUI);
+  $('profile').addEventListener('change', applyProfileDefaults);
   $('protocolConfirmed').addEventListener('change', updateProfileUI);
   $('host').addEventListener('input', updateProfileUI);
-  $('ssid').addEventListener('change', async () => { $('profile').value=await api.suggestProfile($('ssid').value); updateProfileUI(); });
+  $('ssid').addEventListener('change', async () => { $('profile').value=await api.suggestProfile($('ssid').value); applyProfileDefaults(); });
   $('response').addEventListener('input', () => $('responseValue').textContent=`${$('response').value}%`);
   $('discover').addEventListener('click', discover);
   $('startCamera').addEventListener('click', startCamera);

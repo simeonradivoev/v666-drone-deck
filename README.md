@@ -24,8 +24,8 @@ The last line matters. The app is ready for a props-off hardware identification 
 1. Remove every propeller. Leave the bundled transmitter off.
 2. Power the drone and connect the Steam Deck to its Wi-Fi in Desktop Mode.
 3. Record the exact Wi-Fi name. Common matches are `WIFI_8K_*`, `FLOW-UFO-*`, the exact `FLOW_09B183`, or something entirely different.
-4. Launch China Drone Deck and enter that name in **Drone network name**.
-5. Select **Discover drone**. Start with **Camera only / diagnostic** and try the proposed camera URLs.
+4. Launch China Drone Deck and enter that name in **Drone network name**. For the exact `FLOW_09B183`, the app selects its native camera option and `192.168.169.1` automatically.
+5. Select **Discover drone**. Start with **Camera only / diagnostic** and try the proposed camera URLs; for `FLOW_09B183`, choose **WiFi UAV native UDP** instead of an RTSP URL.
 6. If the SSID matches a supported profile, select it and check the explicit verification box.
 7. Enable the flight link with the props still removed. Hold L1 and move each stick slightly, one axis at a time. Confirm the expected motor response and neutral-on-release.
 8. Verify takeoff/land, calibration, headless, and emergency commands on the bench before reinstalling propellers.
@@ -101,7 +101,7 @@ Mode layouts follow conventional RC definitions:
 
 The bridge tries common toy-drone RTSP endpoints, including `:7070/H264VideoSMS` and `:7070/webcam`, then uses `ffmpeg` to produce an in-app MJPEG feed. This is deliberately separate from flight control: camera viewing can work even when the aircraft protocol is still unknown.
 
-For the exact `FLOW_09B183` WiFi-UAV/FLD profile, select `wifi-uav://192.168.169.1` after discovery. That receiver uses the drone's native UDP stream requests and reconstructs its JPEG fragments; it does not use RTSP or `ffmpeg`.
+For the exact `FLOW_09B183` WiFi-UAV/FLD profile, choose **WiFi UAV native UDP**. The app sends the native stream request to `192.168.169.1` on UDP ports `8800` and `8801`, then reconstructs its JPEG fragments; it does not use RTSP or `ffmpeg`.
 
 Wi-Fi FPV on this class of drone often has hundreds of milliseconds of latency. Keep the aircraft within visual line of sight and do not use the camera as the sole reference for close-proximity flying.
 

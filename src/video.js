@@ -23,6 +23,9 @@ function wifiUavRequest(frameId, includeAcks) {
   return packet;
 }
 
+function wifiUavPorts(host) {
+  return host === '192.168.169.1' ? [8800, 8801] : [8800];
+}
 
 class MjpegBridge extends EventEmitter {
   constructor() {
@@ -60,14 +63,17 @@ class MjpegBridge extends EventEmitter {
     const ownsSocket = !socket;
     const udp = socket || require('node:dgram').createSocket('udp4');
     if (ownsSocket) await new Promise((resolve) => udp.bind(0, resolve));
-    const state = { host, udp, ownsSocket, frameId: 1, frames: new Map(), timer: null, onMessage: null };
+    const state = { host, udp, ownsSocket, frameId: 1, frames: new Map(), timer: null, timeout: null, received: false, onMessage: null };
     const request = (frameId) => {
-      udp.send(WIFI_UAV_START, 8800, host);
-      udp.send(wifiUavRequest(frameId, false), 8800, host);
-      udp.send(wifiUavRequest(frameId, true), 8800, host);
+      for (const port of wifiUavPorts(host)) {
+        udp.send(WIFI_UAV_START, port, host);
+        udp.send(wifiUavRequest(frameId, false), port, host);
+        udp.send(wifiUavRequest(frameId, true), port, host);
+      }
     };
     state.onMessage = (packet) => {
       if (packet.length < 56 || packet[0] !== 0x93 || packet[1] !== 0x01 || packet.readUInt16LE(2) !== packet.length) return;
+      state.received = true; clearTimeout(state.timeout);
       const frameId = packet.readBigUInt64LE(8).toString();
       const fragmentId = packet.readUInt32LE(32); const total = packet.readUInt32LE(36);
       if (!total || fragmentId >= total) return;
@@ -81,6 +87,9 @@ class MjpegBridge extends EventEmitter {
     };
     udp.on('message', state.onMessage);
     state.timer = setInterval(() => request(state.frameId), 180);
+    state.timeout = setTimeout(() => {
+      if (!state.received) this.emit('error', new Error('WiFi-UAV camera received no video packets. Keep the flight link enabled, then retry.'));
+    }, 5000);
     this.wifi = state;
     request(0);
     this.emit('status', { running: true, url: `wifi-uav://${host}` });
@@ -88,7 +97,7 @@ class MjpegBridge extends EventEmitter {
   }
   stopWifiUav() {
     if (!this.wifi) return;
-    clearInterval(this.wifi.timer); this.wifi.udp.off('message', this.wifi.onMessage);
+    clearInterval(this.wifi.timer); clearTimeout(this.wifi.timeout); this.wifi.udp.off('message', this.wifi.onMessage);
     if (this.wifi.ownsSocket) this.wifi.udp.close();
     this.wifi = null;
   }
@@ -149,4 +158,4 @@ class MjpegBridge extends EventEmitter {
   }
 }
 
-module.exports = { MjpegBridge, wifiUavRequest, wifiUavJpegHeader };
+module.exports = { MjpegBridge, wifiUavRequest, wifiUavJpegHeader, wifiUavPorts };
