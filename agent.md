@@ -81,6 +81,7 @@ These findings come from static analysis of the supplied matching Android APK (`
 - The stream-request UDP envelope carries that index at byte offset `0x56` (decimal `86`). The preceding request bytes at offsets `82..85` are `32 4b 14 2d`. Change only byte `86` for camera selection.
 - Do **not** encode camera readiness or camera selection in the ACK-record status field. ACK records are their own 16-byte-plus-bitmap structure: 64-bit frame ID, 32-bit status, 32-bit record length, then the received-fragment bitmap.
 - Incoming video-fragment header bytes `52` and `53` report main and flow camera availability respectively. They are status information, not the outbound selector.
+- Incoming video-fragment header bytes `40..43` are the declared payload length. Assemble only `payload_length` bytes after the 56-byte header; UDP datagram tail bytes are not image data.
 - Some selected-flow JPEG payloads contain an SOI marker but omit EOI. The bridge may append the missing `FF D9` terminator after complete fragment assembly; it must not use this to mask missing fragments or invent JPEG data.
 
 For future WiFi-UAV camera changes, preserve these byte-level tests in `test/protocols.test.js`, keep control traffic separate from camera requests, and do not probe alternate indices or commands on live hardware without evidence.

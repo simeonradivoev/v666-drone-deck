@@ -69,7 +69,7 @@ test('WiFi-UAV camera requests match the native UDP envelope', () => {
   assert.deepEqual([...wifiUavJpegHeader().subarray(0, 2)], [0xff, 0xd8]);
   assert.deepEqual(wifiUavPorts('192.168.169.1'), [8800, 8801]);
   assert.deepEqual(wifiUavPorts('192.168.4.153'), [8800]);
-  const native = Buffer.alloc(57); native.set([0x93, 0x01]); native.writeUInt16LE(57, 2); native.writeBigUInt64LE(4n, 8); native.writeUInt32LE(0, 32); native.writeUInt32LE(1, 36);
+  const native = Buffer.alloc(60); native.set([0x93, 0x01]); native.writeUInt16LE(60, 2); native.writeBigUInt64LE(4n, 8); native.writeUInt32LE(0, 32); native.writeUInt32LE(1, 36); native.writeUInt32LE(1, 40); native[56] = 0; native.fill(0xaa, 57);
   native[52] = 2; native[53] = 0;
   assert.deepEqual(parseWifiUavFragment(native), { frameId: '4', fragmentId: 0, total: 1, mainCameraReady: true, flowCameraReady: false, payload: Buffer.from([0]) });
   const legacy = Buffer.alloc(57); legacy.set([0x93, 0x01, 0x39]); legacy.writeUInt16LE(5, 16); legacy.writeUInt16LE(2, 32);

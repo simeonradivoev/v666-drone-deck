@@ -58,7 +58,9 @@ function parseWifiUavFragment(packet) {
   if (packet.readUInt16LE(2) === packet.length) {
     const total = packet.readUInt32LE(36);
     const fragmentId = packet.readUInt32LE(32);
-    if (total > 0 && fragmentId < total) return { frameId: packet.readBigUInt64LE(8).toString(), fragmentId, total, mainCameraReady: packet[52] !== 0, flowCameraReady: packet[53] !== 0, payload: packet.subarray(56) };
+    const payloadLength = packet.readUInt32LE(40);
+    const payloadEnd = payloadLength > 0 && payloadLength <= packet.length - 56 ? 56 + payloadLength : packet.length;
+    if (total > 0 && fragmentId < total) return { frameId: packet.readBigUInt64LE(8).toString(), fragmentId, total, mainCameraReady: packet[52] !== 0, flowCameraReady: packet[53] !== 0, payload: packet.subarray(56, payloadEnd) };
   }
   // Older FLD firmware reports 16-bit counters and only reveals the total on the tail packet.
   const fragmentId = packet.readUInt16LE(32);
