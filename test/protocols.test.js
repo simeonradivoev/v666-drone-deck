@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { mapSticks, wifi8kPacket, flowUfoPacket, wifiUavFldPacket, buildPacket, suggestProfile } = require('../src/protocols');
-const { wifiUavRequest, wifiUavJpegHeader, wifiUavPorts } = require('../src/video');
+const { wifiUavRequest, wifiUavJpegHeader, wifiUavPorts, parseWifiUavFragment } = require('../src/video');
 
 test('Mode 2 maps throttle/yaw left and pitch/roll right', () => {
   assert.deepEqual(mapSticks(2, { leftX: .5, leftY: -.5, rightX: -.25, rightY: .25 }, 0), {
@@ -66,4 +66,8 @@ test('WiFi-UAV camera requests match the native UDP envelope', () => {
   assert.deepEqual([...wifiUavJpegHeader().subarray(0, 2)], [0xff, 0xd8]);
   assert.deepEqual(wifiUavPorts('192.168.169.1'), [8800, 8801]);
   assert.deepEqual(wifiUavPorts('192.168.4.153'), [8800]);
+  const native = Buffer.alloc(57); native.set([0x93, 0x01]); native.writeUInt16LE(57, 2); native.writeBigUInt64LE(4n, 8); native.writeUInt32LE(0, 32); native.writeUInt32LE(1, 36);
+  assert.deepEqual(parseWifiUavFragment(native), { frameId: '4', fragmentId: 0, total: 1, payload: Buffer.from([0]) });
+  const legacy = Buffer.alloc(57); legacy.set([0x93, 0x01, 0x39]); legacy.writeUInt16LE(5, 16); legacy.writeUInt16LE(2, 32);
+  assert.deepEqual(parseWifiUavFragment(legacy), { frameId: '5', fragmentId: 2, total: 3, payload: Buffer.from([0]) });
 });
