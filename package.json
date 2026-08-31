@@ -1,6 +1,6 @@
 {
   "name": "china-drone-deck",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Steam Deck ground station for V666-family Wi-Fi drones",
   "main": "src/main.js",
   "author": "China Drone Deck contributors",
