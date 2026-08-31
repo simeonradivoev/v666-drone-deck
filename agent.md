@@ -72,6 +72,18 @@ Document each protocol profile with:
 - Source of evidence, preferably a packet capture from the exact aircraft.
 
 Never infer undocumented command bytes by sending a brute-force sequence to an assembled aircraft.
+### Confirmed `FLOW_09B183` WiFi-UAV findings
+
+These findings come from static analysis of the supplied matching Android APK (`com.lcfld.fldpublic`, `wifi-uav-base.apk`) and are not a substitute for props-off hardware verification.
+
+- The native library is `lib/arm64-v8a/libuav_lib.so`; its debug symbols name the stream code `mjpeg_ndk.c`.
+- `mjpeg_ndk_set_active_camera_index` stores the selected native camera index. Index `0` is the main/forward path; index `1` selects the flow path (the user confirmed this is the bottom camera on this aircraft).
+- The stream-request UDP envelope carries that index at byte offset `0x56` (decimal `86`). The preceding request bytes at offsets `82..85` are `32 4b 14 2d`. Change only byte `86` for camera selection.
+- Do **not** encode camera readiness or camera selection in the ACK-record status field. ACK records are their own 16-byte-plus-bitmap structure: 64-bit frame ID, 32-bit status, 32-bit record length, then the received-fragment bitmap.
+- Incoming video-fragment header bytes `52` and `53` report main and flow camera availability respectively. They are status information, not the outbound selector.
+- Some selected-flow JPEG payloads contain an SOI marker but omit EOI. The bridge may append the missing `FF D9` terminator after complete fragment assembly; it must not use this to mask missing fragments or invent JPEG data.
+
+For future WiFi-UAV camera changes, preserve these byte-level tests in `test/protocols.test.js`, keep control traffic separate from camera requests, and do not probe alternate indices or commands on live hardware without evidence.
 
 ## Versioning and releases
 
