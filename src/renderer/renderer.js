@@ -2,7 +2,7 @@
 
 const api = window.deckDrone;
 const $ = (id) => document.getElementById(id);
-const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0 };
+const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0, videoFrame: false };
 let gamepadTakeoffTimer = null;
 const COMMAND = { takeoff:0x01, land:0x02, emergency:0x04, flip:0x08, headless:0x10, lock:0x20, unlock:0x40, calibrate:0x80 };
 
@@ -45,8 +45,7 @@ function bindEvents() {
   $('discover').addEventListener('click', discover);
   $('startCamera').addEventListener('click', startCamera);
   $('camera').addEventListener('error', () => {
-    $('camera').style.display='none'; $('cameraPlaceholder').style.display='flex';
-    $('networkStatus').textContent='Camera bridge did not produce a frame. Try the next stream URL.';
+    if (!state.videoFrame) $('networkStatus').textContent='Waiting for the camera bridge to produce its first frame…';
   });
   $('enableControl').addEventListener('click', () => $('safetyDialog').showModal());
   $('acceptSafety').addEventListener('click', connectControl);
@@ -59,7 +58,10 @@ function bindEvents() {
   $('installUpdate').addEventListener('click', () => api.installUpdate());
   $('importUpdate').addEventListener('click', async () => { const result=await api.importUpdate(); if(result) $('updateStatus').textContent=result.message; });
   api.onFlightStatus((status) => { state.connected=Boolean(status.connected); setStatus(status.connected ? 'CONTROL LINKED' : status.error || 'DISCONNECTED', status.connected); document.querySelectorAll('.action-grid button').forEach((button)=>button.disabled=!status.connected); });
-  api.onVideoStatus((status) => { if(status.error){$('networkStatus').textContent=status.error;$('camera').style.display='none';$('cameraPlaceholder').style.display='flex';} });
+  api.onVideoStatus((status) => {
+    if (status.frame) { state.videoFrame = true; $('camera').style.display='block'; $('cameraPlaceholder').style.display='none'; }
+    if(status.error){$('networkStatus').textContent=status.error;$('camera').style.display='none';$('cameraPlaceholder').style.display='flex';}
+  });
   api.onVideoLog((message) => { if(message) $('networkStatus').textContent=message.slice(-90); });
   api.onUpdateStatus(updateStatus);
 }
@@ -80,6 +82,7 @@ async function startCamera() {
   const url=$('cameraUrl').value;
   if(!url) return;
   try {
+    state.videoFrame = false;
     const result=await api.startVideo(url);
     $('camera').src=`${result.feedUrl}?t=${Date.now()}`;
     $('camera').style.display='block'; $('cameraPlaceholder').style.display='none';

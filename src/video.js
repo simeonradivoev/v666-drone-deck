@@ -75,7 +75,7 @@ class MjpegBridge extends EventEmitter {
     const ownsSocket = !socket;
     const udp = socket || require('node:dgram').createSocket('udp4');
     if (ownsSocket) await new Promise((resolve) => udp.bind(0, resolve));
-    const state = { host, udp, ownsSocket, frameId: 1, frames: new Map(), timer: null, timeout: null, received: false, onMessage: null };
+    const state = { host, udp, ownsSocket, frameId: 1, frames: new Map(), timer: null, timeout: null, received: false, packets: 0, fragments: 0, completedFrames: 0, onMessage: null };
     const request = (frameId, includeStart = false) => {
       for (const port of wifiUavPorts(host)) {
         if (includeStart) udp.send(WIFI_UAV_START, port, host);
@@ -84,9 +84,10 @@ class MjpegBridge extends EventEmitter {
       }
     };
     state.onMessage = (packet) => {
+      state.packets += 1;
       const fragment = parseWifiUavFragment(packet);
       if (!fragment) return;
-      state.received = true; clearTimeout(state.timeout);
+      state.received = true; state.fragments += 1; clearTimeout(state.timeout);
       const frame = state.frames.get(fragment.frameId) || { total: fragment.total, fragments: new Map() };
       if (fragment.total) frame.total = fragment.total;
       frame.fragments.set(fragment.fragmentId, fragment.payload); state.frames.set(fragment.frameId, frame);
@@ -94,12 +95,14 @@ class MjpegBridge extends EventEmitter {
       const parts = []; for (let index = 0; index < frame.total; index++) { const part = frame.fragments.get(index); if (!part) return; parts.push(part); }
       state.frames.clear(); state.frameId = Number(BigInt(fragment.frameId) + 1n);
       this.publishFrame(Buffer.concat([wifiUavJpegHeader(), ...parts, Buffer.from([0xff, 0xd9])]));
+      state.completedFrames += 1;
+      this.emit('status', { running: true, url: `wifi-uav://${host}`, packets: state.packets, fragments: state.fragments, frames: state.completedFrames });
       request(state.frameId);
     };
     udp.on('message', state.onMessage);
     state.timer = setInterval(() => request(state.frameId, !state.received), 80);
     state.timeout = setTimeout(() => {
-      if (!state.received) this.emit('error', new Error('WiFi-UAV camera received no video packets. Keep the flight link enabled, then retry.'));
+      if (!state.received) this.emit('error', new Error(`WiFi-UAV camera received ${state.packets} UDP packets but no FLD video fragments.`));
     }, 5000);
     this.wifi = state;
     request(0, true);
