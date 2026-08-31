@@ -14,5 +14,5 @@ contextBridge.exposeInMainWorld('deckDrone', {
   connect: invoke('flight:connect'), updateFlight: invoke('flight:update'), command: invoke('flight:command'), disconnect: invoke('flight:disconnect'),
   startVideo: invoke('video:start'), stopVideo: invoke('video:stop'),
   checkUpdate: invoke('update:check'), installUpdate: invoke('update:install'), importUpdate: invoke('update:import'),
-  onFlightStatus: listen('flight:status'), onVideoStatus: listen('video:status'), onVideoLog: listen('video:log'), onUpdateStatus: listen('update:status')
+  onFlightStatus: listen('flight:status'), onVideoStatus: listen('video:status'), onVideoFrame: listen('video:frame'), onVideoLog: listen('video:log'), onUpdateStatus: listen('update:status')
 });

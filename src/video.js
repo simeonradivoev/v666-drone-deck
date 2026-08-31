@@ -169,7 +169,7 @@ class MjpegBridge extends EventEmitter {
   publishFrame(frame) {
     const header = Buffer.from(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
     for (const client of this.clients) { try { client.write(header); client.write(frame); client.write('\r\n'); } catch (_) { this.clients.delete(client); } }
-    this.emit('frame');
+    this.emit('frame', frame);
   }
 
   consume(chunk) {

@@ -84,6 +84,11 @@ function bindEvents() {
     if (!status.frame && Number.isInteger(status.fragments)) $('networkStatus').textContent = `Camera data: ${status.packets} UDP packets, ${status.fragments} fragments, ${status.frames || 0} frames.`;
     if(status.error){$('networkStatus').textContent=status.error;$('camera').style.display='none';$('cameraPlaceholder').style.display='flex';}
   });
+  api.onVideoFrame((jpeg) => {
+    state.videoFrame = true;
+    $('camera').src = `data:image/jpeg;base64,${jpeg}`;
+    $('camera').style.display='block'; $('cameraPlaceholder').style.display='none';
+  });
   api.onVideoLog((message) => { if(message) $('networkStatus').textContent=message.slice(-90); });
   api.onUpdateStatus(updateStatus);
   window.addEventListener('beforeunload', () => { localStorage.setItem('droneSettings', JSON.stringify(currentSettings())); });
@@ -131,8 +136,9 @@ async function startCamera() {
   try {
     state.videoFrame = false;
     const result=await api.startVideo(url);
-    $('camera').src=`${result.feedUrl}?t=${Date.now()}`;
-    $('camera').style.display='block'; $('cameraPlaceholder').style.display='none';
+    // Frames are delivered directly over Electron IPC, avoiding browser multipart-stream decoding.
+    $('camera').removeAttribute('src');
+    $('camera').style.display='none'; $('cameraPlaceholder').style.display='flex';
     $('networkStatus').textContent='Camera starting…';
   } catch(error) { $('networkStatus').textContent=error.message; }
 }

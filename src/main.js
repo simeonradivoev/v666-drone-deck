@@ -106,7 +106,10 @@ ipcMain.handle('update:import', async () => {
   return { path: result.filePaths[0], message: 'Run the installer script with this AppImage, or replace the current AppImage while the app is closed.' };
 });
 
-video.on('frame', () => send('video:status', { running: true, frame: true }));
+video.on('frame', (frame) => {
+  send('video:status', { running: true, frame: true });
+  send('video:frame', frame.toString('base64'));
+});
 video.on('log', (message) => send('video:log', message));
 video.on('error', (error) => send('video:status', { running: false, error: error.message }));
 video.on('status', (status) => send('video:status', status));
