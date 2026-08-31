@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [0.1.9](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.8...v0.1.9) (2026-08-31)
+
+### Features
+
+* detect drone wifi on launch ([b295c1a](https://github.com/simeonradivoev/v666-drone-deck/commit/b295c1a8dc580a32cef4e0312a96ebe9c5c78b98))
+
+### Bug Fixes
+
+* persist settings and guard shutdown ([55333dd](https://github.com/simeonradivoev/v666-drone-deck/commit/55333ddc1a412566d4dc0945a8de10eba1c1b74d))
+* report stalled camera transport ([0c3c475](https://github.com/simeonradivoev/v666-drone-deck/commit/0c3c4759a98e4704e533de278bad24b18d4ffeca))
 ## [0.1.8](https://github.com/simeonradivoev/v666-drone-deck/compare/v0.1.7...v0.1.8) (2026-08-31)
 
 ### Features
