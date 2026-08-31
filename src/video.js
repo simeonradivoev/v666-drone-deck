@@ -43,6 +43,15 @@ function wifiUavPorts(host) {
   return host === '192.168.169.1' ? [8800, 8801] : [8800];
 }
 
+function wifiUavJpeg(parts) {
+  const payload = Buffer.concat(parts); const soi = payload.indexOf(Buffer.from([0xff, 0xd8]));
+  if (soi >= 0) {
+    const eoi = payload.indexOf(Buffer.from([0xff, 0xd9]), soi + 2);
+    return payload.subarray(soi, eoi >= 0 ? eoi + 2 : undefined);
+  }
+  return Buffer.concat([wifiUavJpegHeader(), payload, Buffer.from([0xff, 0xd9])]);
+}
+
 function parseWifiUavFragment(packet) {
   if (packet.length < 56 || packet[0] !== 0x93 || packet[1] !== 0x01) return null;
   if (packet.readUInt16LE(2) === packet.length) {
@@ -111,7 +120,7 @@ class MjpegBridge extends EventEmitter {
       if (!frame.total || frame.fragments.size !== frame.total) return;
       const parts = []; for (let index = 0; index < frame.total; index++) { const part = frame.fragments.get(index); if (!part) return; parts.push(part); }
       frame.complete = true;
-      this.publishFrame(Buffer.concat([wifiUavJpegHeader(), ...parts, Buffer.from([0xff, 0xd9])]));
+      this.publishFrame(wifiUavJpeg(parts));
       state.completedFrames += 1;
       this.emit('status', { running: true, url: `wifi-uav://${host}`, packets: state.packets, fragments: state.fragments, frames: state.completedFrames });
       request(Number(fragment.frameId));
@@ -142,7 +151,7 @@ class MjpegBridge extends EventEmitter {
         if (request.url !== '/camera.mjpg') { response.writeHead(404).end(); return; }
         response.writeHead(200, {
           'Cache-Control': 'no-store, no-cache, must-revalidate',
-          'Connection': 'close',
+          'Connection': 'keep-alive',
           'Content-Type': 'multipart/x-mixed-replace; boundary=frame',
           'Access-Control-Allow-Origin': '*'
         });
@@ -192,4 +201,4 @@ class MjpegBridge extends EventEmitter {
   }
 }
 
-module.exports = { MjpegBridge, wifiUavRequest, wifiUavJpegHeader, wifiUavPorts, parseWifiUavFragment, wifiUavAckSlots };
+module.exports = { MjpegBridge, wifiUavRequest, wifiUavJpegHeader, wifiUavPorts, wifiUavJpeg, parseWifiUavFragment, wifiUavAckSlots };
