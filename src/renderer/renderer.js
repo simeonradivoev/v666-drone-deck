@@ -4,6 +4,7 @@ const api = window.deckDrone;
 const $ = (id) => document.getElementById(id);
 const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0, videoFrame: false };
 let gamepadTakeoffTimer = null;
+let settingsTimer = null;
 const COMMAND = { takeoff:0x01, land:0x02, emergency:0x04, flip:0x08, headless:0x10, lock:0x20, unlock:0x40, calibrate:0x80 };
 
 function setStatus(text, good = false) { $('linkBadge').textContent = text; $('linkBadge').className = `badge ${good ? 'safe' : 'danger'}`; }
@@ -25,13 +26,29 @@ function applyProfileDefaults() {
   updateProfileUI();
 }
 
+function currentSettings() {
+  return { ssid: $('ssid').value, host: $('host').value, cameraUrl: $('cameraUrl').value, profile: $('profile').value, mode: $('mode').value, response: $('response').value, protocolConfirmed: $('protocolConfirmed').checked };
+}
+function applySettings(settings) {
+  for (const key of ['ssid', 'host', 'mode', 'response']) if (typeof settings[key] === 'string' && $(key)) $(key).value = settings[key];
+  if (settings.profile && state.info.profiles[settings.profile]) $('profile').value = settings.profile;
+  if (typeof settings.protocolConfirmed === 'boolean') $('protocolConfirmed').checked = settings.protocolConfirmed;
+  if (settings.cameraUrl) addCameraOptions([settings.cameraUrl]);
+  $('responseValue').textContent = `${$('response').value}%`; updateProfileUI();
+}
+function scheduleSettingsSave() {
+  localStorage.setItem('droneSettings', JSON.stringify(currentSettings()));
+  clearTimeout(settingsTimer); settingsTimer = setTimeout(() => api.saveSettings(currentSettings()).catch(() => {}), 150);
+}
+
 async function init() {
   state.info = await api.info();
   $('version').textContent = `v${state.info.version}`;
   for (const profile of Object.values(state.info.profiles)) {
     const option=document.createElement('option'); option.value=profile.id; option.textContent=profile.label; $('profile').append(option);
   }
-  updateProfileUI();
+  let localSettings = {}; try { localSettings = JSON.parse(localStorage.getItem('droneSettings') || '{}'); } catch (_) {}
+  applySettings({ ...localSettings, ...(await api.loadSettings()) });
   bindEvents();
   requestAnimationFrame(gamepadLoop);
 }
@@ -42,6 +59,7 @@ function bindEvents() {
   $('host').addEventListener('input', updateProfileUI);
   $('ssid').addEventListener('change', async () => { $('profile').value=await api.suggestProfile($('ssid').value); applyProfileDefaults(); });
   $('response').addEventListener('input', () => $('responseValue').textContent=`${$('response').value}%`);
+  for (const id of ['ssid', 'host', 'cameraUrl', 'profile', 'mode', 'response', 'protocolConfirmed']) $(id).addEventListener(id === 'response' || id === 'host' ? 'input' : 'change', scheduleSettingsSave);
   $('discover').addEventListener('click', discover);
   $('scanDroneWifi').addEventListener('click', scanDroneWifi);
   $('joinDroneWifi').addEventListener('click', joinDroneWifi);
@@ -66,6 +84,7 @@ function bindEvents() {
   });
   api.onVideoLog((message) => { if(message) $('networkStatus').textContent=message.slice(-90); });
   api.onUpdateStatus(updateStatus);
+  window.addEventListener('beforeunload', () => { localStorage.setItem('droneSettings', JSON.stringify(currentSettings())); });
 }
 
 async function scanDroneWifi() {

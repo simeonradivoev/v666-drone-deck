@@ -13,7 +13,22 @@ let window;
 const video = new MjpegBridge();
 const flight = new FlightLink((status) => window?.webContents.send('flight:status', status));
 
-function send(channel, payload) { window?.webContents.send(channel, payload); }
+function send(channel, payload) {
+  if (!window || window.isDestroyed() || window.webContents.isDestroyed()) return;
+  window.webContents.send(channel, payload);
+}
+
+const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
+const settingsKeys = new Set(['ssid', 'host', 'cameraUrl', 'profile', 'mode', 'response', 'protocolConfirmed']);
+async function loadSettings() {
+  try { return JSON.parse(await fs.readFile(settingsPath(), 'utf8')); } catch (_) { return {}; }
+}
+async function saveSettings(settings) {
+  const safe = Object.fromEntries(Object.entries(settings || {}).filter(([key, value]) => settingsKeys.has(key) && ['string', 'boolean', 'number'].includes(typeof value)));
+  await fs.mkdir(app.getPath('userData'), { recursive: true });
+  await fs.writeFile(settingsPath(), JSON.stringify(safe), 'utf8');
+  return safe;
+}
 
 const updateMarkerPath = () => path.join(app.getPath('userData'), 'downloaded-update.json');
 const updaterCachePath = () => path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'china-drone-deck-updater');
@@ -67,6 +82,8 @@ app.on('before-quit', () => { flight.stop(); video.stop(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
 ipcMain.handle('app:info', () => ({ version: app.getVersion(), packaged: app.isPackaged, profiles: PROFILES, modes: MODE_MAPS }));
+ipcMain.handle('settings:load', () => loadSettings());
+ipcMain.handle('settings:save', (_, settings) => saveSettings(settings));
 ipcMain.handle('network:discover', () => discover());
 ipcMain.handle('network:scan-wifi', () => scanDroneWifi());
 ipcMain.handle('network:connect-wifi', (_, ssid) => connectDroneWifi(ssid));
