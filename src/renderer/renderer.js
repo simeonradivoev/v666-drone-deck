@@ -2,7 +2,7 @@
 
 const api = window.deckDrone;
 const $ = (id) => document.getElementById(id);
-const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0, videoFrame: false, cameraOrientations: { main: null, flow: null } };
+const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0, videoFrame: false, cameraOrientations: { main: null, flow: null }, activeCameraSource: 'main', opticalFlow: { previous: null, timestamp: 0, processing: false } };
 let gamepadTakeoffTimer = null;
 let settingsTimer = null;
 const COMMAND = { takeoff:0x01, land:0x02, emergency:0x04, flip:0x08, headless:0x10, lock:0x20, unlock:0x40, calibrate:0x80 };
@@ -106,6 +106,7 @@ function bindEvents() {
   });
   api.onVideoFrame((jpeg) => {
     state.videoFrame = true;
+    updateOpticalFlow(jpeg);
     $('camera').src = `data:image/jpeg;base64,${jpeg}`;
     $('camera').style.display='block'; $('cameraPlaceholder').style.display='none';
   });
@@ -152,6 +153,43 @@ async function discover() {
   } catch(error) { $('networkStatus').textContent=error.message; }
 }
 
+function resetOpticalFlow(active = false) {
+  state.opticalFlow = { previous: null, timestamp: 0, processing: false };
+  $('opticalFlowHud').hidden = !active;
+  $('opticalFlowValue').textContent = active ? 'Acquiring frames…' : '';
+}
+function grayscaleFrame(image) {
+  const canvas = document.createElement('canvas'); canvas.width = 96; canvas.height = 54;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const rgba = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const gray = new Uint8Array(canvas.width * canvas.height);
+  for (let index = 0; index < gray.length; index += 1) gray[index] = (rgba[index * 4] * 77 + rgba[index * 4 + 1] * 150 + rgba[index * 4 + 2] * 29) >> 8;
+  return { gray, width: canvas.width, height: canvas.height };
+}
+function updateOpticalFlow(jpeg) {
+  if (state.activeCameraSource !== 'flow' || state.opticalFlow.processing || !window.OpticalFlow) return;
+  const now = performance.now();
+  if (now - state.opticalFlow.timestamp < 100) return;
+  state.opticalFlow.processing = true;
+  const image = new Image();
+  image.onload = () => {
+    const sample = grayscaleFrame(image); const previous = state.opticalFlow.previous; const previousAt = state.opticalFlow.timestamp;
+    state.opticalFlow.previous = sample.gray; state.opticalFlow.timestamp = now; state.opticalFlow.processing = false;
+    if (!previous) return;
+    const result = window.OpticalFlow.estimateTranslation(previous, sample.gray, sample.width, sample.height);
+    const seconds = Math.max(.001, (now - previousAt) / 1000);
+    if (!result || result.confidence < .12) { $('opticalFlowValue').textContent = 'Low texture / confidence'; return; }
+    let dx = result.dx; let dy = result.dy; const orientation = cameraOrientation.value;
+    if (orientation === 'mirror-horizontal' || orientation === 'rotate-180') dx = -dx;
+    if (orientation === 'flip-vertical' || orientation === 'rotate-180') dy = -dy;
+    const speed = Math.round(Math.hypot(dx, dy) / seconds);
+    const arrow = dx > 1 ? '→' : dx < -1 ? '←' : dy > 1 ? '↓' : dy < -1 ? '↑' : '•';
+    $('opticalFlowValue').textContent = 'Image drift ' + arrow + ' ' + speed + ' px/s · ' + Math.round(result.confidence * 100) + '%';
+  };
+  image.onerror = () => { state.opticalFlow.processing = false; };
+  image.src = 'data:image/jpeg;base64,' + jpeg;
+}
 function applyCameraOrientation() {
   $('camera').dataset.orientation = $('cameraOrientation').value;
 }
@@ -162,6 +200,7 @@ async function startCamera() {
   try {
     state.videoFrame = false;
     const source = url.startsWith('wifi-uav://') ? selectedCameraSource() : 'main';
+    state.activeCameraSource = source; resetOpticalFlow(source === 'flow');
     if (!state.cameraOrientations[source]) state.cameraOrientations[source] = defaultCameraOrientation(source, url);
     syncCameraOrientation();
     const result=await api.startVideo(url, source);
@@ -176,7 +215,7 @@ async function startCamera() {
 async function stopCamera() {
   try { await api.stopVideo(); }
   finally {
-    state.videoFrame = false; $('camera').removeAttribute('src'); delete $('camera').dataset.orientation;
+    state.videoFrame = false; state.activeCameraSource = 'main'; resetOpticalFlow(false); $('camera').removeAttribute('src'); delete $('camera').dataset.orientation;
     $('camera').style.display='none'; $('cameraPlaceholder').style.display='flex'; $('stopCamera').hidden = true;
     $('networkStatus').textContent='Camera stopped.';
   }

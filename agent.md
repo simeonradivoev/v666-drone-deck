@@ -53,6 +53,7 @@ Live camera display requires `ffmpeg` on `PATH`. A custom binary can be supplied
 - Do not place raw socket access in renderer code.
 - Clamp every control channel before packet encoding.
 - Stop timers and close sockets during disconnect and application shutdown.
+- Keep camera-derived optical flow visual-only unless a separate, explicitly authorized control design includes calibration, altitude estimation, failsafes, and props-off hardware verification.
 - Unknown SSIDs must resolve to the diagnostic profile.
 - Discovery may probe common camera endpoints, but it must not transmit motor commands.
 - Keep flight control usable without an internet connection.

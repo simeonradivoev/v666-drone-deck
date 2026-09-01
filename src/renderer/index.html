@@ -20,6 +20,7 @@
         <div id="cameraPlaceholder" class="camera-placeholder"><div class="reticle"></div><strong>CAMERA OFFLINE</strong><span>Connect to the drone Wi-Fi, then run discovery.</span></div>
         <div class="hud top-left"><span id="linkBadge" class="badge danger">DISCONNECTED</span><span id="profileBadge" class="badge">CAMERA ONLY</span></div>
         <div class="hud top-right"><span id="flightTimer">00:00</span></div>
+        <div id="opticalFlowHud" class="hud bottom-left" hidden><span class="flow-label">BOTTOM FLOW · VISUAL ONLY</span><strong id="opticalFlowValue">Acquiring frames…</strong></div>
         <div class="hud bottom-center">
           <div class="axis"><label>ROLL</label><i id="rollBar"></i></div>
           <div class="axis"><label>PITCH</label><i id="pitchBar"></i></div>
@@ -85,6 +86,7 @@
       <div class="dialog-actions"><button value="cancel">Cancel</button><button id="acceptSafety" value="ok" class="danger-button">I understand — connect</button></div>
     </form>
   </dialog>
+  <script src="optical-flow.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
