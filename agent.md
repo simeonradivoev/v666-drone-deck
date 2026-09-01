@@ -53,7 +53,7 @@ Live camera display requires `ffmpeg` on `PATH`. A custom binary can be supplied
 - Do not place raw socket access in renderer code.
 - Clamp every control channel before packet encoding.
 - Stop timers and close sockets during disconnect and application shutdown.
-- Keep camera-derived optical flow visual-only unless a separate, explicitly authorized control design includes calibration, altitude estimation, failsafes, and props-off hardware verification.
+- Camera-derived optical flow is visual-only by default. The explicitly authorized experimental drift-assist path must retain explicit enablement and calibration confirmation, L1 hold, centered manual roll/pitch/yaw gates, fresh high-confidence bottom-camera flow, bounded corrections, immediate neutralization when a gate is lost, and props-off hardware verification before flight. Do not represent it as altitude hold or autonomous flight.
 - Unknown SSIDs must resolve to the diagnostic profile.
 - Discovery may probe common camera endpoints, but it must not transmit motor commands.
 - Keep flight control usable without an internet connection.

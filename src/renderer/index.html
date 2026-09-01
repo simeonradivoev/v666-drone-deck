@@ -48,6 +48,11 @@
           <p id="profileDescription" class="warning"></p>
           <label>Stick mode<select id="mode"><option value="1">Mode 1</option><option value="2" selected>Mode 2</option><option value="3">Mode 3</option><option value="4">Mode 4</option></select></label>
           <label>Response <input id="response" type="range" min="25" max="100" value="65"><output id="responseValue">65%</output></label>
+          <label class="check"><input id="positionAssistEnabled" type="checkbox"> Experimental visual drift assist — only with L1 held and centered sticks</label>
+          <label class="check"><input id="positionAssistCalibrated" type="checkbox"> I verified roll/pitch correction directions in a safe hover</label>
+          <label>Drift-to-roll direction<select id="assistRollSign"><option value="1">Normal</option><option value="-1">Reverse</option></select></label>
+          <label>Drift-to-pitch direction<select id="assistPitchSign"><option value="1">Normal</option><option value="-1">Reverse</option></select></label>
+          <p id="assistStatus" class="warning">Drift assist disabled.</p>
           <label class="check"><input id="protocolConfirmed" type="checkbox"> I verified this protocol matches my SSID/capture</label>
           <button id="enableControl" class="danger-button" disabled>Enable flight link</button>
           <p class="hint">Hold <kbd>L1</kbd> to send stick movement. Releasing it commands neutral. This is the deadman switch.</p>
@@ -87,6 +92,7 @@
     </form>
   </dialog>
   <script src="optical-flow.js"></script>
+  <script src="position-assist.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 
 const api = window.deckDrone;
 const $ = (id) => document.getElementById(id);
-const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0, videoFrame: false, cameraOrientations: { main: null, flow: null }, activeCameraSource: 'main', opticalFlow: { previous: null, timestamp: 0, processing: false } };
+const state = { info: null, connected: false, armedAt: null, axes: { roll:0,pitch:0,throttle:0,yaw:0 }, commandFlags:0, videoFrame: false, cameraOrientations: { main: null, flow: null }, activeCameraSource: 'main', opticalFlow: { previous: null, timestamp: 0, processing: false, latest: null } };
 let gamepadTakeoffTimer = null;
 let settingsTimer = null;
 const COMMAND = { takeoff:0x01, land:0x02, emergency:0x04, flip:0x08, headless:0x10, lock:0x20, unlock:0x40, calibrate:0x80 };
@@ -37,14 +37,16 @@ function syncCameraOrientation() {
   applyCameraOrientation();
 }
 function currentSettings() {
-  return { ssid: $('ssid').value, host: $('host').value, cameraUrl: $('cameraUrl').value, cameraSource: $('cameraSource').value, cameraOrientationMain: state.cameraOrientations.main, cameraOrientationFlow: state.cameraOrientations.flow, profile: $('profile').value, mode: $('mode').value, response: $('response').value, protocolConfirmed: $('protocolConfirmed').checked };
+  return { ssid: $('ssid').value, host: $('host').value, cameraUrl: $('cameraUrl').value, cameraSource: $('cameraSource').value, cameraOrientationMain: state.cameraOrientations.main, cameraOrientationFlow: state.cameraOrientations.flow, positionAssistEnabled: $('positionAssistEnabled').checked, positionAssistCalibrated: $('positionAssistCalibrated').checked, assistRollSign: $('assistRollSign').value, assistPitchSign: $('assistPitchSign').value, profile: $('profile').value, mode: $('mode').value, response: $('response').value, protocolConfirmed: $('protocolConfirmed').checked };
 }
 function applySettings(settings) {
-  for (const key of ['ssid', 'host', 'cameraSource', 'mode', 'response']) if (typeof settings[key] === 'string' && $(key)) $(key).value = settings[key];
+  for (const key of ['ssid', 'host', 'cameraSource', 'assistRollSign', 'assistPitchSign', 'mode', 'response']) if (typeof settings[key] === 'string' && $(key)) $(key).value = settings[key];
   const legacyOrientation = typeof settings.cameraOrientation === 'string' ? settings.cameraOrientation : null;
   state.cameraOrientations.main = typeof settings.cameraOrientationMain === 'string' ? settings.cameraOrientationMain : legacyOrientation;
   state.cameraOrientations.flow = typeof settings.cameraOrientationFlow === 'string' ? settings.cameraOrientationFlow : legacyOrientation;
   if (settings.profile && state.info.profiles[settings.profile]) $('profile').value = settings.profile;
+  if (typeof settings.positionAssistEnabled === 'boolean') $('positionAssistEnabled').checked = settings.positionAssistEnabled;
+  if (typeof settings.positionAssistCalibrated === 'boolean') $('positionAssistCalibrated').checked = settings.positionAssistCalibrated;
   if (typeof settings.protocolConfirmed === 'boolean') $('protocolConfirmed').checked = settings.protocolConfirmed;
   if (settings.cameraUrl) addCameraOptions([settings.cameraUrl]);
   syncCameraOrientation();
@@ -76,7 +78,7 @@ function bindEvents() {
   $('host').addEventListener('input', updateProfileUI);
   $('ssid').addEventListener('change', async () => { $('profile').value=await api.suggestProfile($('ssid').value); applyProfileDefaults(); });
   $('response').addEventListener('input', () => $('responseValue').textContent=`${$('response').value}%`);
-  for (const id of ['ssid', 'host', 'cameraUrl', 'profile', 'mode', 'response', 'protocolConfirmed']) $(id).addEventListener(id === 'response' || id === 'host' ? 'input' : 'change', scheduleSettingsSave);
+  for (const id of ['ssid', 'host', 'cameraUrl', 'positionAssistEnabled', 'positionAssistCalibrated', 'assistRollSign', 'assistPitchSign', 'profile', 'mode', 'response', 'protocolConfirmed']) $(id).addEventListener(id === 'response' || id === 'host' ? 'input' : 'change', scheduleSettingsSave);
   $('cameraSource').addEventListener('change', () => { syncCameraOrientation(); scheduleSettingsSave(); });
   $('cameraOrientation').addEventListener('change', () => { state.cameraOrientations[selectedCameraSource()] = $('cameraOrientation').value; applyCameraOrientation(); scheduleSettingsSave(); });
 
@@ -153,8 +155,22 @@ async function discover() {
   } catch(error) { $('networkStatus').textContent=error.message; }
 }
 
+function positionAssistOptions() {
+  return {
+    enabled: $('positionAssistEnabled').checked, calibrated: $('positionAssistCalibrated').checked,
+    rollSign: Number($('assistRollSign').value), pitchSign: Number($('assistPitchSign').value)
+  };
+}
+function applyPositionAssist(mapped, deadman) {
+  const assist = window.PositionAssist?.calculateDriftAssist({
+    ...positionAssistOptions(), deadman, manualRoll: mapped.roll, manualPitch: mapped.pitch, manualYaw: mapped.yaw,
+    flow: state.activeCameraSource === 'flow' ? state.opticalFlow.latest : null, now: performance.now()
+  }) || { roll: 0, pitch: 0, active: false, reason: 'Position-assist module unavailable' };
+  $('assistStatus').textContent = assist.active ? 'DRIFT ASSIST ACTIVE — release L1 to neutralize.' : 'Drift assist: ' + assist.reason + '.';
+  return { ...mapped, roll: Math.max(-1, Math.min(1, mapped.roll + assist.roll)), pitch: Math.max(-1, Math.min(1, mapped.pitch + assist.pitch)) };
+}
 function resetOpticalFlow(active = false) {
-  state.opticalFlow = { previous: null, timestamp: 0, processing: false };
+  state.opticalFlow = { previous: null, timestamp: 0, processing: false, latest: null };
   $('opticalFlowHud').hidden = !active;
   $('opticalFlowValue').textContent = active ? 'Acquiring frames…' : '';
 }
@@ -179,10 +195,11 @@ function updateOpticalFlow(jpeg) {
     if (!previous) return;
     const result = window.OpticalFlow.estimateTranslation(previous, sample.gray, sample.width, sample.height);
     const seconds = Math.max(.001, (now - previousAt) / 1000);
-    if (!result || result.confidence < .12) { $('opticalFlowValue').textContent = 'Low texture / confidence'; return; }
-    let dx = result.dx; let dy = result.dy; const orientation = cameraOrientation.value;
+    if (!result || result.confidence < .12) { state.opticalFlow.latest = null; $('opticalFlowValue').textContent = 'Low texture / confidence'; return; }
+    let dx = result.dx; let dy = result.dy; const orientation = $('cameraOrientation').value;
     if (orientation === 'mirror-horizontal' || orientation === 'rotate-180') dx = -dx;
     if (orientation === 'flip-vertical' || orientation === 'rotate-180') dy = -dy;
+    state.opticalFlow.latest = { dx: dx / seconds, dy: dy / seconds, confidence: result.confidence, timestamp: now };
     const speed = Math.round(Math.hypot(dx, dy) / seconds);
     const arrow = dx > 1 ? '→' : dx < -1 ? '←' : dy > 1 ? '↓' : dy < -1 ? '↑' : '•';
     $('opticalFlowValue').textContent = 'Image drift ' + arrow + ' ' + speed + ' px/s · ' + Math.round(result.confidence * 100) + '%';
@@ -311,7 +328,8 @@ function gamepadLoop() {
     updateGamepadNavigation(pad);
     updateControllerShortcuts(pad);
     const mapped=remap(Number($('mode').value),pad.axes);
-    state.axes=Object.fromEntries(Object.entries(mapped).map(([key,value])=>[key,deadman?value*gain:0]));
+    const assisted=applyPositionAssist(mapped, deadman);
+    state.axes=Object.fromEntries(Object.entries(assisted).map(([key,value])=>[key,deadman?value*gain:0]));
     if(state.connected) api.updateFlight(state.axes);
     for(const key of ['roll','pitch','throttle','yaw']) $(''+key+'Bar').style.transform=`scaleX(${Math.max(.02,(state.axes[key]+1)/2)})`;
   } else if (state.gamepadButtons) { if (gamepadTakeoffTimer) clearTimeout(gamepadTakeoffTimer); gamepadTakeoffTimer = null; state.gamepadButtons = []; }
